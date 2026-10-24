@@ -15,15 +15,17 @@ use crate::networking::analysis::{
     PurposeReport, TrafficGroup, TrafficPurpose, UNKNOWN_GROUP, report_traffic,
 };
 use crate::networking::announcements::AnnouncementKey;
+use crate::networking::neighbors::{KnownNeighbor, known_neighbors};
 use crate::networking::types::data_representation::DataRepr;
 use crate::translations::translations::{
     address_translation, bytes_translation, packets_translation,
 };
 use crate::translations::translations_3::service_translation;
 use crate::translations::translations_6::{
-    analysis_translation, announcements_translation, instance_translation, model_translation,
-    no_announcements_translation, no_other_traffic_translation, not_parsed_yet_translation,
-    traffic_translation, unknown_purpose_translation,
+    analysis_translation, announcements_translation, instance_translation,
+    known_neighbors_translation, model_translation, neighbor_translation,
+    no_announcements_translation, no_known_neighbors_translation, no_other_traffic_translation,
+    not_parsed_yet_translation, traffic_translation, unknown_purpose_translation,
 };
 use crate::{RunningPage, Sniffer, StyleType};
 
@@ -42,16 +44,33 @@ pub fn analysis_page(sniffer: &Sniffer) -> Container<'_, Message, StyleType> {
     let unknown = report
         .iter()
         .find(|item| item.purpose == TrafficPurpose::Unknown);
+    let neighbors = known_neighbors(
+        &sniffer.info_traffic.announcements,
+        &sniffer.info_traffic.map,
+        sniffer.capture_source.get_addresses(),
+    );
+    let filter = TextInput::new(analysis_translation(language), &sniffer.announcement_filter)
+        .on_input(Message::AnnouncementFilter)
+        .padding([2, 5])
+        .size(FONT_SIZE_FOOTER)
+        .width(Length::Fill)
+        .class(if sniffer.announcement_filter.is_empty() {
+            TextInputType::Standard
+        } else {
+            TextInputType::Badge
+        });
 
     let body = Column::new()
         .width(Length::Fill)
         .height(Length::Fill)
         .padding(10)
         .spacing(10)
+        .push(filter)
         .push(
             Row::new()
                 .spacing(10)
                 .height(Length::Fill)
+                .push(neighbors_card(sniffer, &neighbors))
                 .push(announcements_card(sniffer, announcements))
                 .push(unknown_card(sniffer, unknown)),
         );
@@ -68,17 +87,6 @@ fn announcements_card<'a>(
     let bytes = report.map(|item| item.bytes).unwrap_or_default();
     let unparsed = visible_groups(sniffer, report.map_or(&[], |item| item.groups.as_slice()));
     let rows = visible_rows(sniffer);
-
-    let filter = TextInput::new(analysis_translation(language), &sniffer.announcement_filter)
-        .on_input(Message::AnnouncementFilter)
-        .padding([2, 5])
-        .size(FONT_SIZE_FOOTER)
-        .width(Length::Fill)
-        .class(if sniffer.announcement_filter.is_empty() {
-            TextInputType::Standard
-        } else {
-            TextInputType::Badge
-        });
 
     let mut listed = Column::new().spacing(2).width(Length::Fill);
     if rows.is_empty() && unparsed.is_empty() {
@@ -113,19 +121,45 @@ fn announcements_card<'a>(
         announcements_translation(language),
         packets,
         bytes,
-        Column::new()
-            .spacing(8)
+        Scrollable::with_direction(listed, Direction::Vertical(ScrollbarType::properties()))
             .width(Length::Fill)
-            .height(Length::Fill)
-            .push(filter)
-            .push(
-                Scrollable::with_direction(
-                    listed,
-                    Direction::Vertical(ScrollbarType::properties()),
-                )
-                .width(Length::Fill)
-                .height(Length::Fill),
-            ),
+            .height(Length::Fill),
+        3,
+    )
+}
+
+fn neighbors_card<'a>(
+    sniffer: &'a Sniffer,
+    neighbors: &[KnownNeighbor],
+) -> Container<'a, Message, StyleType> {
+    let Settings { language, .. } = sniffer.conf.settings;
+    let packets = neighbors.iter().map(|neighbor| neighbor.packets).sum();
+    let bytes = neighbors.iter().map(|neighbor| neighbor.bytes).sum();
+    let visible = visible_neighbors(sniffer, neighbors);
+
+    let mut listed = Column::new().spacing(2).width(Length::Fill);
+    if visible.is_empty() {
+        listed = listed.push(
+            Text::new(no_known_neighbors_translation(language))
+                .size(FONT_SIZE_FOOTER)
+                .class(TextType::Dimmed),
+        );
+    } else {
+        listed = listed
+            .push(neighbor_header(language))
+            .push(RuleType::Standard.horizontal(5));
+        for neighbor in visible {
+            listed = listed.push(neighbor_row(neighbor));
+        }
+    }
+
+    card(
+        known_neighbors_translation(language),
+        packets,
+        bytes,
+        Scrollable::with_direction(listed, Direction::Vertical(ScrollbarType::properties()))
+            .width(Length::Fill)
+            .height(Length::Fill),
         3,
     )
 }
@@ -250,6 +284,42 @@ fn visible_groups<'a>(sniffer: &Sniffer, groups: &'a [TrafficGroup]) -> Vec<&'a 
 
 fn filter_needle(sniffer: &Sniffer) -> String {
     sniffer.announcement_filter.trim().to_ascii_lowercase()
+}
+
+fn visible_neighbors<'a>(
+    sniffer: &Sniffer,
+    neighbors: &'a [KnownNeighbor],
+) -> Vec<&'a KnownNeighbor> {
+    let filter = filter_needle(sniffer);
+    neighbors
+        .iter()
+        .filter(|neighbor| {
+            filter.is_empty()
+                || neighbor.label.to_ascii_lowercase().contains(&filter)
+                || neighbor.services.to_ascii_lowercase().contains(&filter)
+                || neighbor.address.to_ascii_lowercase().contains(&filter)
+        })
+        .collect()
+}
+
+fn neighbor_header<'a>(language: crate::Language) -> Row<'a, Message, StyleType> {
+    Row::new()
+        .width(Length::Fill)
+        .spacing(8)
+        .push(cell(neighbor_translation(language).to_string(), 3, true))
+        .push(cell(address_translation(language).to_string(), 3, true))
+        .push(cell(service_translation(language).to_string(), 3, true))
+        .push(cell(packets_translation(language).to_string(), 1, true))
+}
+
+fn neighbor_row(neighbor: &KnownNeighbor) -> Row<'static, Message, StyleType> {
+    Row::new()
+        .width(Length::Fill)
+        .spacing(8)
+        .push(cell(neighbor.label.clone(), 3, false))
+        .push(cell(neighbor.address.clone(), 3, false))
+        .push(cell(neighbor.services.clone(), 3, false))
+        .push(cell(neighbor.packets.to_string(), 1, false))
 }
 
 fn announcement_header<'a>(language: crate::Language) -> Row<'a, Message, StyleType> {

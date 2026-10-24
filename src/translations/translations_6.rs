@@ -210,6 +210,27 @@ pub fn no_other_traffic_translation(language: Language) -> &'static str {
     }
 }
 
+pub fn known_neighbors_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Known Neighbors",
+        _ => "Known Neighbors",
+    }
+}
+
+pub fn no_known_neighbors_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "No known neighbors have been observed yet.",
+        _ => "No known neighbors have been observed yet.",
+    }
+}
+
+pub fn neighbor_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Neighbor",
+        _ => "Neighbor",
+    }
+}
+
 pub fn no_announcements_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "No announcements have been observed yet.",

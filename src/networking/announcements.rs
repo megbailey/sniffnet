@@ -105,6 +105,16 @@ impl AnnouncementInfo {
         }
     }
 
+    /// Counts used by tests in other modules. Private traffic flags stay at their default.
+    #[cfg(test)]
+    pub fn for_tests(packets: u128, bytes: u128) -> Self {
+        Self {
+            packets,
+            bytes,
+            ..Self::default()
+        }
+    }
+
     fn push_address(&mut self, address: IpAddr) {
         if self.extra_addresses.len() < 3 && !self.extra_addresses.contains(&address) {
             self.extra_addresses.push(address);

@@ -3,6 +3,7 @@ pub mod announcements;
 pub mod capture;
 pub mod ipfix;
 pub mod manage_packets;
+pub mod neighbors;
 pub mod parse_packets;
 pub mod traffic_preview;
 pub mod types;
