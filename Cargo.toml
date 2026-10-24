@@ -45,7 +45,7 @@ workspace = true
 
 [dependencies]
 
-sniffnet-packet-parser = { path = "lib/sniffnet-packet-parser", version = "0.2.1" }
+sniffnet-packet-parser = { path = "lib/sniffnet-packet-parser", version = "0.2.2" }
 
 pcap.workspace = true
 
@@ -91,7 +91,7 @@ serial_test = { version = "4.0.1", default-features = false }
 
 [build-dependencies]
 
-sniffnet-packet-parser = { path = "lib/sniffnet-packet-parser", version = "0.2.1", default-features = false }
+sniffnet-packet-parser = { path = "lib/sniffnet-packet-parser", version = "0.2.2", default-features = false }
 
 phf_codegen = "0.14.0"
 phf_shared = "0.14.0"

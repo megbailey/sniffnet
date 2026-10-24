@@ -1,4 +1,5 @@
 use crate::Service;
+use crate::networking::announcements::{AnnouncementInfo, AnnouncementKey};
 use crate::networking::manage_packets::get_local_port;
 use crate::networking::types::address_port_pair::AddressPortPair;
 use crate::networking::types::data_info::DataInfo;
@@ -26,6 +27,8 @@ pub struct InfoTraffic {
     pub services: HashMap<Service, DataInfo>,
     /// Map of the hosts with their data info
     pub hosts: HashMap<Host, DataInfoHost>,
+    /// Advertised identities grouped from DNS-SD and UDP 2021 announcements.
+    pub announcements: HashMap<AnnouncementKey, AnnouncementInfo>,
     /// Connections that need their rate reset at the start of the next interval
     connections_active_last_interval: Vec<AddressPortPair>,
     /// Services that need their rate reset at the start of the next interval
@@ -43,6 +46,7 @@ impl InfoTraffic {
             map,
             services,
             hosts,
+            announcements,
             connections_active_last_interval: _,
             services_active_last_interval: _,
             hosts_active_last_interval: _,
@@ -113,6 +117,13 @@ impl InfoTraffic {
                 .entry(key.clone())
                 .and_modify(|x| x.refresh(value))
                 .or_insert(*value);
+        }
+
+        for (key, value) in announcements.iter() {
+            self.announcements
+                .entry(key.clone())
+                .and_modify(|existing| existing.absorb(value))
+                .or_insert_with(|| value.clone());
         }
     }
 

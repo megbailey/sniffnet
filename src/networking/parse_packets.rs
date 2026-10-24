@@ -1,8 +1,10 @@
 //! `pcap`-based capture backend
 
+use crate::Protocol;
 use crate::gui::types::filters::Filters;
 use crate::location;
 use crate::mmdb::types::mmdb_reader::MmdbReaders;
+use crate::networking::announcements::{AnnouncementDatagram, observe_announcements};
 use crate::networking::capture::{
     AddressesResolutionState, BackendTrafficMessage, maybe_send_tick, spawn_reverse_dns_pool,
 };
@@ -174,6 +176,32 @@ pub fn parse_packets(
                         traffic_direction,
                         service,
                     );
+
+                    if parsed.transport_info.protocol == Protocol::Udp
+                        && let (Some(src_port), Some(dst_port)) = (
+                            parsed.transport_info.src_port,
+                            parsed.transport_info.dst_port,
+                        )
+                        && (src_port == 5353
+                            || dst_port == 5353
+                            || src_port == 2021
+                            || dst_port == 2021)
+                        && let Some(payload) =
+                            ParsedPacket::transport_payload(&packet.data, link_type)
+                    {
+                        observe_announcements(
+                            &mut info_traffic_msg,
+                            &AnnouncementDatagram {
+                                payload,
+                                src_port,
+                                dst_port,
+                                src_ip: key.src_ip,
+                                dst_ip: key.dst_ip,
+                                packet_bytes: bytes,
+                                interface_addresses: cs.get_addresses(),
+                            },
+                        );
+                    }
 
                     // update dropped packets number
                     if let Some(stats) = cap_stats {

@@ -7,6 +7,7 @@ use crate::gui::components::modal::{
     get_clear_all_overlay, get_exit_overlay, get_update_status_overlay, modal,
 };
 use crate::gui::components::types::my_modal::MyModal;
+use crate::gui::pages::analysis_page::analysis_page;
 use crate::gui::pages::connection_details_page::connection_details_page;
 use crate::gui::pages::initial_page::initial_page;
 use crate::gui::pages::inspect_page::inspect_page;
@@ -127,6 +128,8 @@ pub struct Sniffer {
     pub unread_notifications: usize,
     /// Search parameters of inspect page
     pub search: SearchParameters,
+    /// Text filter for the analysis page. It is cleared when a capture resets.
+    pub announcement_filter: String,
     /// Current page number of inspect search results
     pub page_number: usize,
     /// MMDB readers for country and ASN
@@ -183,6 +186,7 @@ impl Sniffer {
             running_page: None,
             unread_notifications: 0,
             search: SearchParameters::default(),
+            announcement_filter: String::new(),
             page_number: 1,
             mmdb_readers: MmdbReaders {
                 country: Arc::new(MmdbReader::from(&mmdb_country, COUNTRY_MMDB)),
@@ -332,6 +336,7 @@ impl Sniffer {
             Message::ResetButtonPressed => return self.reset_button_pressed(),
             Message::CtrlDPressed => self.ctrl_d_pressed(),
             Message::Search(parameters) => self.search(parameters),
+            Message::AnnouncementFilter(filter) => self.announcement_filter = filter,
             Message::UpdatePageNumber(increment) => self.update_page_number(increment),
             Message::ArrowPressed(increment) => self.arrow_pressed(increment),
             Message::WindowFocused => self.window_focused(),
@@ -415,6 +420,7 @@ impl Sniffer {
                         match running_page {
                             RunningPage::Overview => overview_page(self),
                             RunningPage::Inspect => inspect_page(self),
+                            RunningPage::Analysis => analysis_page(self),
                             RunningPage::Notifications => notifications_page(self),
                         }
                     }
@@ -1219,6 +1225,7 @@ impl Sniffer {
         self.running_page = None;
         self.unread_notifications = 0;
         self.search = SearchParameters::default();
+        self.announcement_filter.clear();
         self.page_number = 1;
         self.thumbnail = false;
         self.combobox_data_states = ComboboxDataStates::default();

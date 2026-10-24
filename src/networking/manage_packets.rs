@@ -343,6 +343,23 @@ fn get_traffic_direction(
     }
 }
 
+/// Classifies `destination_ip` as unicast, multicast, or broadcast.
+///
+/// Incoming multicast and broadcast stay multicast and broadcast. [`get_traffic_type`]
+/// reports those packets as unicast because it describes the remote host.
+pub fn destination_traffic_type(
+    destination_ip: &IpAddr,
+    my_interface_addresses: &[Address],
+) -> TrafficType {
+    if destination_ip.is_multicast() {
+        TrafficType::Multicast
+    } else if is_broadcast_address(destination_ip, my_interface_addresses) {
+        TrafficType::Broadcast
+    } else {
+        TrafficType::Unicast
+    }
+}
+
 /// Returns the traffic type observed (unicast, multicast or broadcast)
 /// It refers to the remote host
 pub fn get_traffic_type(

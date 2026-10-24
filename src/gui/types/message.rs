@@ -21,6 +21,7 @@ use iced::window;
 use std::net::IpAddr;
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 /// Messages types that permit reacting to application interactions/subscriptions
 pub enum Message {
     /// Run tasks to initialize the app
@@ -99,6 +100,8 @@ pub enum Message {
     CtrlDPressed,
     /// Update search parameters of inspect page
     Search(SearchParameters),
+    /// Filter the analysis page by instance, service, or group
+    AnnouncementFilter(String),
     /// Update page result number in inspect
     UpdatePageNumber(bool),
     /// Left (false) or Right (true) arrow key has been pressed

@@ -174,3 +174,66 @@ pub fn current_rates_translation(language: Language) -> &'static str {
         _ => "Current rates",
     }
 }
+
+pub fn analysis_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Analysis",
+        _ => "Analysis",
+    }
+}
+
+pub fn announcements_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Announcements",
+        _ => "Announcements",
+    }
+}
+
+pub fn unknown_purpose_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Unknown",
+        _ => "Unknown",
+    }
+}
+
+pub fn not_parsed_yet_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Not parsed yet",
+        _ => "Not parsed yet",
+    }
+}
+
+pub fn no_other_traffic_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "No other traffic has been observed yet.",
+        _ => "No other traffic has been observed yet.",
+    }
+}
+
+pub fn no_announcements_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "No announcements have been observed yet.",
+        _ => "No announcements have been observed yet.",
+    }
+}
+
+pub fn instance_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Instance",
+        _ => "Instance",
+    }
+}
+
+pub fn model_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Model",
+        _ => "Model",
+    }
+}
+
+pub fn traffic_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Traffic",
+        _ => "Traffic",
+    }
+}

@@ -57,6 +57,12 @@ impl ParsedPacket {
     pub fn bytes_count(&self) -> usize {
         self.link_info.bytes.saturating_add(self.net_info.bytes)
     }
+
+    #[must_use]
+    /// Returns the transport payload of `bytes`, when this packet was parsed from them.
+    pub fn transport_payload(bytes: &[u8], link_type: LinkType) -> Option<&[u8]> {
+        Some(get_sniffable_headers(bytes, link_type)?.payload.slice())
+    }
 }
 
 /// This function extracts info from the data link layer header passed as parameter.
@@ -245,5 +251,40 @@ fn analyze_transport_header(transport_header: Option<TransportHeader>) -> Option
             })
         }
         None => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pcap::Linktype;
+
+    #[test]
+    fn transport_payload_is_the_udp_datagram_body() {
+        let body = b"NOTIFY * HTTP/1.1\r\n";
+        let udp_len = 8 + body.len();
+        let ip_len = 20 + udp_len;
+        let mut packet = vec![
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x01, 0x08, 0x00,
+            0x45, 0x00,
+        ];
+        packet.push((ip_len >> 8) as u8);
+        packet.push(ip_len as u8);
+        packet.extend_from_slice(&[
+            0x00, 0x00, 0x00, 0x00, 0x40, 0x11, 0x00, 0x00, 192, 168, 1, 149, 255, 255, 255, 255,
+            0x07, 0xe5, 0x07, 0xe5,
+        ]);
+        packet.push((udp_len >> 8) as u8);
+        packet.push(udp_len as u8);
+        packet.extend_from_slice(&[0x00, 0x00]);
+        packet.extend_from_slice(body);
+
+        let link_type = LinkType::Ethernet(Linktype::ETHERNET);
+        let parsed = ParsedPacket::from_bytes(&packet, link_type).unwrap();
+        assert_eq!(parsed.transport_info.protocol, Protocol::Udp);
+        assert_eq!(
+            ParsedPacket::transport_payload(&packet, link_type),
+            Some(body.as_slice())
+        );
     }
 }
