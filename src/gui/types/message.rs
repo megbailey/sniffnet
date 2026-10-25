@@ -3,6 +3,7 @@ use crate::gui::pages::types::running_page::RunningPage;
 use crate::gui::pages::types::settings_page::SettingsPage;
 use crate::gui::styles::types::gradient_type::GradientType;
 use crate::gui::types::favorite::FavoriteKey;
+use crate::gui::types::network_sort::NetworkSort;
 use crate::gui::types::update_status::UpdateStatus;
 use crate::networking::traffic_preview::TrafficPreview;
 use crate::networking::types::capture_context::CaptureSourcePicklist;
@@ -102,6 +103,8 @@ pub enum Message {
     Search(SearchParameters),
     /// Filter the analysis page by instance, service, or group
     AnnouncementFilter(String),
+    /// Sort a column on the Network analysis page
+    NetworkAnalysisSort(NetworkSort),
     /// Update page result number in inspect
     UpdatePageNumber(bool),
     /// Left (false) or Right (true) arrow key has been pressed

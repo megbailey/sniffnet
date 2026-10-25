@@ -8,6 +8,7 @@ use pcap::Address;
 use crate::networking::manage_packets::destination_traffic_type;
 use crate::networking::types::info_traffic::InfoTraffic;
 use crate::networking::types::traffic_type::TrafficType;
+use crate::utils::formatted_strings::mac_from_dec_to_hex;
 
 const MDNS_PORT: u16 = 5353;
 const CUSTOM_BROADCAST_PORT: u16 = 2021;
@@ -18,6 +19,25 @@ const DNS_AAAA: u16 = 28;
 const DNS_SRV: u16 = 33;
 const DNS_CLASS_IN: u16 = 1;
 
+/// One announcement row after addresses for the same instance and service are combined.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnnouncementGroup {
+    /// DNS-SD instance or device name.
+    pub instance: String,
+    /// Service type.
+    pub service: String,
+    /// One IPv4 address and the MAC from the frame that sent it, when both are known.
+    pub addresses: String,
+    /// Comma-separated traffic kinds observed for this identity.
+    pub traffic: String,
+    /// Optional model string from TXT or a vendor header.
+    pub model: String,
+    /// Advertisement packets folded into this row.
+    pub packets: u128,
+    /// Bytes of those packets.
+    pub bytes: u128,
+}
+
 /// One advertised identity: service type, instance name, and the address that sent it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AnnouncementKey {
@@ -27,6 +47,8 @@ pub struct AnnouncementKey {
     pub service: String,
     /// Address that transmitted the advertisement.
     pub source: IpAddr,
+    /// Whether this advertisement was unicast, multicast, or broadcast.
+    pub traffic: TrafficType,
 }
 
 /// Packets accumulated for one [`AnnouncementKey`].
@@ -40,9 +62,8 @@ pub struct AnnouncementInfo {
     pub model: String,
     /// Extra addresses learned from A or AAAA records.
     pub extra_addresses: Vec<IpAddr>,
-    unicast: bool,
-    multicast: bool,
-    broadcast: bool,
+    /// Source MAC of the frame that carried an IPv4 advertisement.
+    src_mac: Option<[u8; 6]>,
 }
 
 /// A single identity found inside one datagram, before it is counted.
@@ -62,50 +83,20 @@ impl AnnouncementInfo {
         if self.model.is_empty() {
             self.model.clone_from(&other.model);
         }
-        self.unicast |= other.unicast;
-        self.multicast |= other.multicast;
-        self.broadcast |= other.broadcast;
         for address in &other.extra_addresses {
             self.push_address(*address);
         }
-    }
-
-    /// Comma-separated traffic kinds that have been observed, in a stable order.
-    pub fn traffic_label(&self) -> String {
-        let mut kinds = Vec::new();
-        if self.unicast {
-            kinds.push("unicast");
-        }
-        if self.multicast {
-            kinds.push("multicast");
-        }
-        if self.broadcast {
-            kinds.push("broadcast");
-        }
-        kinds.join(", ")
-    }
-
-    /// Source address, followed by any distinct A or AAAA addresses.
-    pub fn address_label(&self, source: IpAddr) -> String {
-        let mut labels = vec![source.to_string()];
-        for address in &self.extra_addresses {
-            let label = address.to_string();
-            if *address != source && !labels.contains(&label) {
-                labels.push(label);
-            }
-        }
-        labels.join(", ")
-    }
-
-    fn note_traffic(&mut self, traffic_type: TrafficType) {
-        match traffic_type {
-            TrafficType::Unicast => self.unicast = true,
-            TrafficType::Multicast => self.multicast = true,
-            TrafficType::Broadcast => self.broadcast = true,
+        if self.src_mac.is_none() {
+            self.src_mac = other.src_mac;
         }
     }
 
-    /// Counts used by tests in other modules. Private traffic flags stay at their default.
+    /// MAC from the frame that sent this IPv4 advertisement.
+    pub(crate) fn source_mac(&self) -> Option<[u8; 6]> {
+        self.src_mac
+    }
+
+    /// Counts used by tests in other modules.
     #[cfg(test)]
     pub fn for_tests(packets: u128, bytes: u128) -> Self {
         Self {
@@ -138,6 +129,99 @@ pub struct AnnouncementDatagram<'a> {
     pub packet_bytes: u128,
     /// Local interface addresses, used to recognize directed broadcasts.
     pub interface_addresses: &'a [Address],
+    /// Source MAC from the link layer, paired with an IPv4 source.
+    pub src_mac: Option<[u8; 6]>,
+}
+
+/// Combine rows that share an instance, service, and traffic type.
+///
+/// The address column is one IPv4 address and the MAC from the frame that sent it.
+pub fn grouped_announcements(
+    announcements: &HashMap<AnnouncementKey, AnnouncementInfo>,
+) -> Vec<AnnouncementGroup> {
+    let mut buckets: HashMap<(String, String, TrafficType), AnnouncementBucket> = HashMap::new();
+    for (key, info) in announcements {
+        let bucket = buckets
+            .entry((key.instance.clone(), key.service.clone(), key.traffic))
+            .or_default();
+        bucket.pairs.push((key.source, info.src_mac, info.packets));
+        bucket.packets = bucket.packets.saturating_add(info.packets);
+        bucket.bytes = bucket.bytes.saturating_add(info.bytes);
+        if bucket.model.is_empty() {
+            bucket.model.clone_from(&info.model);
+        }
+    }
+
+    let mut groups = buckets
+        .into_iter()
+        .map(|((instance, service, traffic), bucket)| AnnouncementGroup {
+            instance,
+            service,
+            addresses: choose_pair(&bucket.pairs),
+            traffic: traffic_name(traffic).to_string(),
+            model: bucket.model,
+            packets: bucket.packets,
+            bytes: bucket.bytes,
+        })
+        .collect::<Vec<_>>();
+    groups.sort_by(|left, right| {
+        right
+            .packets
+            .cmp(&left.packets)
+            .then_with(|| left.instance.cmp(&right.instance))
+            .then_with(|| left.service.cmp(&right.service))
+            .then_with(|| left.traffic.cmp(&right.traffic))
+    });
+    groups
+}
+
+#[derive(Default)]
+struct AnnouncementBucket {
+    pairs: Vec<(IpAddr, Option<[u8; 6]>, u128)>,
+    model: String,
+    packets: u128,
+    bytes: u128,
+}
+
+fn traffic_name(traffic: TrafficType) -> &'static str {
+    match traffic {
+        TrafficType::Unicast => "unicast",
+        TrafficType::Multicast => "multicast",
+        TrafficType::Broadcast => "broadcast",
+    }
+}
+
+/// The busiest IPv4 source in the group, with its own MAC. Other addresses stay off this row.
+fn choose_pair(pairs: &[(IpAddr, Option<[u8; 6]>, u128)]) -> String {
+    let mut chosen: Vec<_> = pairs
+        .iter()
+        .filter(|(address, _, _)| address.is_ipv4())
+        .collect();
+    if chosen.is_empty() {
+        chosen = pairs.iter().collect();
+    }
+    chosen.sort_by(|left, right| {
+        right
+            .2
+            .cmp(&left.2)
+            .then_with(|| address_order(&left.0).cmp(&address_order(&right.0)))
+    });
+    let Some((address, mac, _)) = chosen.first() else {
+        return String::new();
+    };
+    match (address, mac) {
+        (IpAddr::V4(ip), Some(mac)) => {
+            format!("{ip}, {}", mac_from_dec_to_hex(*mac))
+        }
+        (address, _) => address.to_string(),
+    }
+}
+
+fn address_order(address: &IpAddr) -> (u8, u128) {
+    match address {
+        IpAddr::V4(ip) => (0, u128::from(u32::from(*ip))),
+        IpAddr::V6(ip) => (1 + u8::from(ip.is_unicast_link_local()), u128::from(*ip)),
+    }
 }
 
 /// Parse a UDP payload when either port is 5353 or 2021, and count it on its identity rows.
@@ -158,11 +242,14 @@ pub fn observe_announcements(info_traffic: &mut InfoTraffic, datagram: &Announce
             instance: item.instance,
             service: item.service,
             source: datagram.src_ip,
+            traffic: traffic_type,
         };
         let entry = info_traffic.announcements.entry(key).or_default();
         entry.packets = entry.packets.saturating_add(1);
         entry.bytes = entry.bytes.saturating_add(datagram.packet_bytes);
-        entry.note_traffic(traffic_type);
+        if entry.src_mac.is_none() && datagram.src_ip.is_ipv4() {
+            entry.src_mac = datagram.src_mac;
+        }
         if entry.model.is_empty() {
             entry.model = item.model;
         }
@@ -510,6 +597,7 @@ mod tests {
                 dst_ip: IpAddr::V4(Ipv4Addr::from(dst)),
                 packet_bytes: 100,
                 interface_addresses: &[],
+                src_mac: None,
             },
         );
     }
@@ -577,15 +665,25 @@ mod tests {
             5353,
         );
 
-        assert_eq!(info.announcements.len(), 4);
-        let tv = info
+        assert_eq!(info.announcements.len(), 5);
+        let tv: Vec<_> = info
             .announcements
             .iter()
-            .find(|(key, _)| key.instance == "Hisense Xumo TV")
-            .unwrap();
-        assert_eq!(tv.0.service, "_airplay._tcp");
-        assert_eq!(tv.1.packets, 2);
-        assert_eq!(tv.1.traffic_label(), "unicast, multicast");
+            .filter(|(key, _)| key.instance == "Hisense Xumo TV")
+            .collect();
+        assert_eq!(tv.len(), 2);
+        assert!(
+            tv.iter()
+                .all(|(key, info)| { key.service == "_airplay._tcp" && info.packets == 1 })
+        );
+        assert!(
+            tv.iter()
+                .any(|(key, _)| key.traffic == TrafficType::Unicast)
+        );
+        assert!(
+            tv.iter()
+                .any(|(key, _)| key.traffic == TrafficType::Multicast)
+        );
         assert!(
             info.announcements
                 .keys()
@@ -648,7 +746,7 @@ mod tests {
         assert_eq!(key.service, "urn:bambulab-com:device:3dprinter:1");
         assert_eq!(value.model, "O1S");
         assert_eq!(value.packets, 13);
-        assert_eq!(value.traffic_label(), "broadcast");
+        assert_eq!(key.traffic, TrafficType::Broadcast);
     }
 
     #[test]
@@ -690,5 +788,125 @@ mod tests {
         );
         total.refresh(&mut second, &mut lookup);
         assert_eq!(total.announcements.values().next().unwrap().packets, 2);
+    }
+
+    #[test]
+    fn same_instance_and_service_join_their_addresses() {
+        let mut info = InfoTraffic::default();
+        let airplay = ptr_message("_airplay._tcp.local", "mb's macbook._airplay._tcp.local");
+        observe(
+            &mut info,
+            &airplay,
+            [192, 168, 1, 53],
+            [224, 0, 0, 251],
+            5353,
+            5353,
+        );
+        observe(
+            &mut info,
+            &airplay,
+            [192, 168, 1, 52],
+            [224, 0, 0, 251],
+            5353,
+            5353,
+        );
+        let companion = ptr_message(
+            "_companion-link._tcp.local",
+            "mb's macbook._companion-link._tcp.local",
+        );
+        observe(
+            &mut info,
+            &companion,
+            [192, 168, 1, 52],
+            [224, 0, 0, 251],
+            5353,
+            5353,
+        );
+
+        let groups = grouped_announcements(&info.announcements);
+        assert_eq!(groups.len(), 2);
+        let airplay_row = groups
+            .iter()
+            .find(|row| row.service == "_airplay._tcp")
+            .unwrap();
+        assert_eq!(airplay_row.instance, "mb's macbook");
+        assert_eq!(airplay_row.traffic, "multicast");
+        assert_eq!(airplay_row.addresses, "192.168.1.52");
+        assert_eq!(airplay_row.packets, 2);
+        assert_eq!(
+            groups
+                .iter()
+                .find(|row| row.service == "_companion-link._tcp")
+                .unwrap()
+                .addresses,
+            "192.168.1.52"
+        );
+    }
+
+    #[test]
+    fn ipv4_is_paired_with_its_mac_and_traffic_types_stay_apart() {
+        let mac_a = [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff];
+        let mac_b = [0x11, 0x22, 0x33, 0x44, 0x55, 0x66];
+        let v4 = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 52));
+        let other = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 53));
+        let v6 = IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 4));
+        let mut announcements = HashMap::new();
+        announcements.insert(
+            AnnouncementKey {
+                instance: "mb's macbook".to_string(),
+                service: "_airplay._tcp".to_string(),
+                source: v4,
+                traffic: TrafficType::Multicast,
+            },
+            AnnouncementInfo {
+                packets: 5,
+                bytes: 500,
+                extra_addresses: vec![v6],
+                src_mac: Some(mac_a),
+                ..AnnouncementInfo::default()
+            },
+        );
+        announcements.insert(
+            AnnouncementKey {
+                instance: "mb's macbook".to_string(),
+                service: "_airplay._tcp".to_string(),
+                source: other,
+                traffic: TrafficType::Multicast,
+            },
+            AnnouncementInfo {
+                packets: 1,
+                bytes: 100,
+                src_mac: Some(mac_b),
+                ..AnnouncementInfo::default()
+            },
+        );
+        announcements.insert(
+            AnnouncementKey {
+                instance: "mb's macbook".to_string(),
+                service: "_airplay._tcp".to_string(),
+                source: v4,
+                traffic: TrafficType::Unicast,
+            },
+            AnnouncementInfo {
+                packets: 2,
+                bytes: 200,
+                src_mac: Some(mac_a),
+                ..AnnouncementInfo::default()
+            },
+        );
+
+        let groups = grouped_announcements(&announcements);
+        assert_eq!(groups.len(), 2);
+        let multicast = groups
+            .iter()
+            .find(|row| row.traffic == "multicast")
+            .unwrap();
+        assert_eq!(multicast.addresses, "192.168.1.52, aa:bb:cc:dd:ee:ff");
+        assert_eq!(multicast.packets, 6);
+        assert!(!multicast.addresses.contains("fe80"));
+        assert!(!multicast.addresses.contains("192.168.1.53"));
+        let unicast = groups.iter().find(|row| row.traffic == "unicast").unwrap();
+        assert_eq!(unicast.addresses, "192.168.1.52, aa:bb:cc:dd:ee:ff");
+        assert_eq!(unicast.packets, 2);
     }
 }

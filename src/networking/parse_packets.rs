@@ -199,6 +199,7 @@ pub fn parse_packets(
                                 dst_ip: key.dst_ip,
                                 packet_bytes: bytes,
                                 interface_addresses: cs.get_addresses(),
+                                src_mac: mac_addresses.0,
                             },
                         );
                     }

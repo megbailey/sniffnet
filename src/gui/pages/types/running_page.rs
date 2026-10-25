@@ -1,7 +1,7 @@
 use crate::gui::types::message::Message;
 use crate::translations::translations::{notifications_translation, overview_translation};
 use crate::translations::translations_2::inspect_translation;
-use crate::translations::translations_6::analysis_translation;
+use crate::translations::translations_6::{analysis_translation, network_sweep_translation};
 use crate::utils::types::icon::Icon;
 use crate::{Language, StyleType};
 use serde::{Deserialize, Serialize};
@@ -19,15 +19,18 @@ pub enum RunningPage {
     /// `Announcements` is accepted so a config saved by the previous tab name still opens.
     #[serde(alias = "Announcements")]
     Analysis,
+    /// Local addresses that were probed and did not answer.
+    NetworkSweep,
     /// Notifications page.
     Notifications,
 }
 
 impl RunningPage {
-    pub const ALL: [RunningPage; 4] = [
+    pub const ALL: [RunningPage; 5] = [
         RunningPage::Overview,
         RunningPage::Inspect,
         RunningPage::Analysis,
+        RunningPage::NetworkSweep,
         RunningPage::Notifications,
     ];
 
@@ -36,6 +39,7 @@ impl RunningPage {
             RunningPage::Overview => overview_translation(language),
             RunningPage::Inspect => inspect_translation(language),
             RunningPage::Analysis => analysis_translation(language),
+            RunningPage::NetworkSweep => network_sweep_translation(language),
             RunningPage::Notifications => notifications_translation(language),
         }
     }
@@ -44,7 +48,8 @@ impl RunningPage {
         match self {
             RunningPage::Overview => RunningPage::Inspect,
             RunningPage::Inspect => RunningPage::Analysis,
-            RunningPage::Analysis => RunningPage::Notifications,
+            RunningPage::Analysis => RunningPage::NetworkSweep,
+            RunningPage::NetworkSweep => RunningPage::Notifications,
             RunningPage::Notifications => RunningPage::Overview,
         }
     }
@@ -54,7 +59,8 @@ impl RunningPage {
             RunningPage::Overview => RunningPage::Notifications,
             RunningPage::Inspect => RunningPage::Overview,
             RunningPage::Analysis => RunningPage::Inspect,
-            RunningPage::Notifications => RunningPage::Analysis,
+            RunningPage::NetworkSweep => RunningPage::Analysis,
+            RunningPage::Notifications => RunningPage::NetworkSweep,
         }
     }
 
@@ -63,6 +69,7 @@ impl RunningPage {
             RunningPage::Overview => Icon::Overview,
             RunningPage::Inspect => Icon::Inspect,
             RunningPage::Analysis => Icon::Waves,
+            RunningPage::NetworkSweep => Icon::Ping,
             RunningPage::Notifications => Icon::Notification,
         }
         .to_text()
@@ -80,7 +87,11 @@ mod tests {
     #[test]
     fn test_previous_running_page() {
         assert_eq!(RunningPage::Overview.previous(), RunningPage::Notifications);
-        assert_eq!(RunningPage::Notifications.previous(), RunningPage::Analysis);
+        assert_eq!(
+            RunningPage::Notifications.previous(),
+            RunningPage::NetworkSweep
+        );
+        assert_eq!(RunningPage::NetworkSweep.previous(), RunningPage::Analysis);
         assert_eq!(RunningPage::Analysis.previous(), RunningPage::Inspect);
         assert_eq!(RunningPage::Inspect.previous(), RunningPage::Overview);
     }
@@ -89,7 +100,8 @@ mod tests {
     fn test_next_running_page() {
         assert_eq!(RunningPage::Overview.next(), RunningPage::Inspect);
         assert_eq!(RunningPage::Inspect.next(), RunningPage::Analysis);
-        assert_eq!(RunningPage::Analysis.next(), RunningPage::Notifications);
+        assert_eq!(RunningPage::Analysis.next(), RunningPage::NetworkSweep);
+        assert_eq!(RunningPage::NetworkSweep.next(), RunningPage::Notifications);
         assert_eq!(RunningPage::Notifications.next(), RunningPage::Overview);
     }
 }

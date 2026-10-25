@@ -3,7 +3,19 @@
 All Sniffnet releases with the relative changes are documented in this file.
 
 ## [UNRELEASED]
-- Analysis tab: group every flow by purpose. DNS-SD and UDP 2021 advertisements stay in an Announcements card, other traffic stays grouped until a dedicated analysis exists, and named devices that advertise or talk to this host appear as Known Neighbors
+- Network sweep tab: list local addresses that were probed and never answered, with counts of addresses investigated, addresses with no reply, and usable addresses on the IPv4 subnet
+- Local Neighbors groups a device that speaks from several addresses, such as Continuity on one Mac, and lists every address separated by commas
+- Analysis columns truncate instead of drawing over the next column, and hovering a cell shows the full text
+- Announcements with the same instance and service share one row and list every address separated by commas. That card sits beside the network sweep summary, with the sweep list underneath the investigated counts
+- Network sweep summary counts IPv4 addresses that are statically occupied: this host, devices that spoke, and the gateway, shown against the usable size of the subnet
+- Announcements group by instance, service, and traffic type, and each row shows one IPv4 address with the MAC from the frame that sent it
+- Network sweep is renamed Network analysis. Local Neighbors moves there as Overhead neighbor, with one row per service showing a single IPv4 address and its MAC
+- The investigated section lists occupied and free IPv4 addresses live. An address is occupied only after it has been active for 30 seconds and was seen within the last minute
+- Overhead neighbor groups one row per IPv4 address and MAC and joins that address's traffic. Announcements stay split by traffic type, and the service column is labeled Traffic
+- A discovery probe and a reply from the same IPv4 are one neighbor, and that device's non-IPv4 rows join the IPv4 record
+- Overhead neighbor folds a broadcast discovery MAC into the named device and omits probes that got no reply. Those probes are listed with announcements whether or not anyone answered
+- Every column on the Network analysis page can be sorted
+- Analysis tab: group every flow by purpose. DNS-SD and UDP 2021 advertisements stay in an Announcements card, other traffic stays grouped until a dedicated analysis exists, and every other device on the local network appears under Local Neighbors, named from its announcement, hostname, or role such as Router or iPhone
 - IPFIX collector capabilities: receive and analyze network traffic from remote devices ([#1270](https://github.com/GyulyVGC/sniffnet/pull/1270) — fixes [#303](https://github.com/GyulyVGC/sniffnet/issues/303))
 - Show current data rates ([#1324](https://github.com/GyulyVGC/sniffnet/pull/1324) — fixes [#1077](https://github.com/GyulyVGC/sniffnet/issues/1077), [#1135](https://github.com/GyulyVGC/sniffnet/issues/1135))
 - Service taxonomy: classify upper layer services into 20 different categories ([#1312](https://github.com/GyulyVGC/sniffnet/pull/1312) — fixes [#1102](https://github.com/GyulyVGC/sniffnet/issues/1102))

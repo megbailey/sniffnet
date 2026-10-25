@@ -11,6 +11,7 @@ use crate::gui::pages::analysis_page::analysis_page;
 use crate::gui::pages::connection_details_page::connection_details_page;
 use crate::gui::pages::initial_page::initial_page;
 use crate::gui::pages::inspect_page::inspect_page;
+use crate::gui::pages::network_sweep_page::network_sweep_page;
 use crate::gui::pages::notifications_page::notifications_page;
 use crate::gui::pages::overview_page::overview_page;
 use crate::gui::pages::settings_general_page::settings_general_page;
@@ -130,6 +131,19 @@ pub struct Sniffer {
     pub search: SearchParameters,
     /// Text filter for the analysis page. It is cleared when a capture resets.
     pub announcement_filter: String,
+    /// Active Overhead neighbor column and its sort direction.
+    pub neighbor_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
+    /// Active announcements column and its sort direction.
+    pub announcement_sort: (
+        crate::gui::types::network_sort::AnnouncementColumn,
+        SortType,
+    ),
+    /// Active unparsed-group column and its sort direction.
+    pub group_sort: (crate::gui::types::network_sort::GroupColumn, SortType),
+    /// Sort direction of the occupied address list.
+    pub occupied_sort: SortType,
+    /// Sort direction of the free address list.
+    pub free_sort: SortType,
     /// Current page number of inspect search results
     pub page_number: usize,
     /// MMDB readers for country and ASN
@@ -187,6 +201,20 @@ impl Sniffer {
             unread_notifications: 0,
             search: SearchParameters::default(),
             announcement_filter: String::new(),
+            neighbor_sort: (
+                crate::gui::types::network_sort::NeighborColumn::Packets,
+                SortType::Neutral,
+            ),
+            announcement_sort: (
+                crate::gui::types::network_sort::AnnouncementColumn::Packets,
+                SortType::Neutral,
+            ),
+            group_sort: (
+                crate::gui::types::network_sort::GroupColumn::Packets,
+                SortType::Neutral,
+            ),
+            occupied_sort: SortType::Neutral,
+            free_sort: SortType::Neutral,
             page_number: 1,
             mmdb_readers: MmdbReaders {
                 country: Arc::new(MmdbReader::from(&mmdb_country, COUNTRY_MMDB)),
@@ -337,6 +365,7 @@ impl Sniffer {
             Message::CtrlDPressed => self.ctrl_d_pressed(),
             Message::Search(parameters) => self.search(parameters),
             Message::AnnouncementFilter(filter) => self.announcement_filter = filter,
+            Message::NetworkAnalysisSort(sort) => self.network_analysis_sort(sort),
             Message::UpdatePageNumber(increment) => self.update_page_number(increment),
             Message::ArrowPressed(increment) => self.arrow_pressed(increment),
             Message::WindowFocused => self.window_focused(),
@@ -421,6 +450,7 @@ impl Sniffer {
                             RunningPage::Overview => overview_page(self),
                             RunningPage::Inspect => inspect_page(self),
                             RunningPage::Analysis => analysis_page(self),
+                            RunningPage::NetworkSweep => network_sweep_page(self),
                             RunningPage::Notifications => notifications_page(self),
                         }
                     }
@@ -739,6 +769,17 @@ impl Sniffer {
 
     fn set_ip_blacklist(&mut self, blacklist: IpBlacklist) {
         self.ip_blacklist = blacklist;
+    }
+
+    fn network_analysis_sort(&mut self, sort: crate::gui::types::network_sort::NetworkSort) {
+        use crate::gui::types::network_sort::{NetworkSort, select_column};
+        match sort {
+            NetworkSort::Neighbor(column) => select_column(&mut self.neighbor_sort, column),
+            NetworkSort::Announcement(column) => select_column(&mut self.announcement_sort, column),
+            NetworkSort::Group(column) => select_column(&mut self.group_sort, column),
+            NetworkSort::Occupied => self.occupied_sort = self.occupied_sort.next_sort(),
+            NetworkSort::Free => self.free_sort = self.free_sort.next_sort(),
+        }
     }
 
     fn measure_latency(&mut self, ip: IpAddr) -> Task<Message> {

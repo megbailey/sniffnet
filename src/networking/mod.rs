@@ -5,5 +5,6 @@ pub mod ipfix;
 pub mod manage_packets;
 pub mod neighbors;
 pub mod parse_packets;
+pub mod sweep;
 pub mod traffic_preview;
 pub mod types;

@@ -210,17 +210,87 @@ pub fn no_other_traffic_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn known_neighbors_translation(language: Language) -> &'static str {
+pub fn local_neighbors_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Known Neighbors",
-        _ => "Known Neighbors",
+        Language::EN => "Overhead neighbor",
+        _ => "Overhead neighbor",
     }
 }
 
-pub fn no_known_neighbors_translation(language: Language) -> &'static str {
+pub fn no_local_neighbors_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "No known neighbors have been observed yet.",
-        _ => "No known neighbors have been observed yet.",
+        Language::EN => "No overhead neighbors have been observed yet.",
+        _ => "No overhead neighbors have been observed yet.",
+    }
+}
+
+pub fn network_sweep_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Network analysis",
+        _ => "Network analysis",
+    }
+}
+
+pub fn investigated_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Investigated",
+        _ => "Investigated",
+    }
+}
+
+pub fn no_reply_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "No reply",
+        _ => "No reply",
+    }
+}
+
+pub fn possible_addresses_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Possible addresses",
+        _ => "Possible addresses",
+    }
+}
+
+pub fn occupied_ips_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Occupied",
+        _ => "Occupied",
+    }
+}
+
+pub fn free_ips_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Free",
+        _ => "Free",
+    }
+}
+
+pub fn no_occupied_ips_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "No addresses are occupied.",
+        _ => "No addresses are occupied.",
+    }
+}
+
+pub fn no_free_ips_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "No addresses are free.",
+        _ => "No addresses are free.",
+    }
+}
+
+pub fn occupied_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Occupied",
+        _ => "Occupied",
+    }
+}
+
+pub fn of_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "of",
+        _ => "of",
     }
 }
 
@@ -252,9 +322,23 @@ pub fn model_translation(language: Language) -> &'static str {
     }
 }
 
+pub fn sweep_ping_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Sweep",
+        _ => "Sweep",
+    }
+}
+
 pub fn traffic_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "Traffic",
         _ => "Traffic",
+    }
+}
+
+pub fn traffic_type_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Traffic type",
+        _ => "Traffic type",
     }
 }
