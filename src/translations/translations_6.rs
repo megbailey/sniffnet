@@ -184,8 +184,8 @@ pub fn analysis_translation(language: Language) -> &'static str {
 
 pub fn announcements_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Announcements",
-        _ => "Announcements",
+        Language::EN => "Discovery",
+        _ => "Discovery",
     }
 }
 
@@ -247,15 +247,15 @@ pub fn no_reply_translation(language: Language) -> &'static str {
 
 pub fn possible_addresses_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Possible addresses",
-        _ => "Possible addresses",
+        Language::EN => "Size of subnet",
+        _ => "Size of subnet",
     }
 }
 
 pub fn occupied_ips_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Occupied",
-        _ => "Occupied",
+        Language::EN => "Neighbors",
+        _ => "Neighbors",
     }
 }
 
@@ -268,8 +268,8 @@ pub fn free_ips_translation(language: Language) -> &'static str {
 
 pub fn no_occupied_ips_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "No addresses are occupied.",
-        _ => "No addresses are occupied.",
+        Language::EN => "No neighbors.",
+        _ => "No neighbors.",
     }
 }
 
@@ -282,8 +282,8 @@ pub fn no_free_ips_translation(language: Language) -> &'static str {
 
 pub fn occupied_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Occupied",
-        _ => "Occupied",
+        Language::EN => "Neighbors",
+        _ => "Neighbors",
     }
 }
 
@@ -294,20 +294,6 @@ pub fn of_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn neighbor_translation(language: Language) -> &'static str {
-    match language {
-        Language::EN => "Neighbor",
-        _ => "Neighbor",
-    }
-}
-
-pub fn no_announcements_translation(language: Language) -> &'static str {
-    match language {
-        Language::EN => "No announcements have been observed yet.",
-        _ => "No announcements have been observed yet.",
-    }
-}
-
 pub fn instance_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "Instance",
@@ -315,10 +301,10 @@ pub fn instance_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn model_translation(language: Language) -> &'static str {
+pub fn no_announcements_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Model",
-        _ => "Model",
+        Language::EN => "No discovery has been observed yet.",
+        _ => "No discovery has been observed yet.",
     }
 }
 
@@ -329,10 +315,10 @@ pub fn sweep_ping_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn traffic_translation(language: Language) -> &'static str {
+pub fn arp_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Traffic",
-        _ => "Traffic",
+        Language::EN => "ARP",
+        _ => "ARP",
     }
 }
 

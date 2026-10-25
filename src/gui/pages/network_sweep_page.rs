@@ -175,6 +175,7 @@ fn ip_list(
     order: SortType,
     target: NetworkSort,
 ) -> Column<'static, Message, StyleType> {
+    let count = addresses.len();
     let mut addresses = addresses.to_vec();
     if order != SortType::Neutral {
         addresses.sort_by(|left, right| directed(order, ipv4_order(left).cmp(&ipv4_order(right))));
@@ -201,6 +202,11 @@ fn ip_list(
                 .push(
                     Text::new(title)
                         .class(TextType::Title)
+                        .size(FONT_SIZE_TITLE),
+                )
+                .push(
+                    Text::new(count.to_string())
+                        .class(TextType::Subtitle)
                         .size(FONT_SIZE_TITLE),
                 )
                 .push(

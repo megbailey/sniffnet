@@ -10,8 +10,8 @@ use crate::report::types::sort_type::SortType;
 pub enum NetworkSort {
     /// Overhead neighbor table.
     Neighbor(NeighborColumn),
-    /// Announcements table, including sweep rows.
-    Announcement(AnnouncementColumn),
+    /// Discovery table. Columns match Overhead neighbors.
+    Announcement(NeighborColumn),
     /// Unparsed announcement groups.
     Group(GroupColumn),
     /// Occupied address list.
@@ -27,25 +27,12 @@ pub enum NeighborColumn {
     Neighbor,
     /// IPv4 address and MAC.
     Address,
-    /// Joined traffic names.
+    /// Joined service names.
     Traffic,
-    /// Packet count.
-    Packets,
-}
-
-/// Columns of the announcements table.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AnnouncementColumn {
-    /// Instance name.
-    Instance,
-    /// Service or probe detail.
-    Traffic,
-    /// Address.
-    Address,
+    /// Packet protocols, such as UDP or ARP.
+    Protocol,
     /// Unicast, multicast, or broadcast.
     TrafficType,
-    /// Model string.
-    Model,
     /// Packet count.
     Packets,
 }

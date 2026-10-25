@@ -15,6 +15,12 @@ All Sniffnet releases with the relative changes are documented in this file.
 - A discovery probe and a reply from the same IPv4 are one neighbor, and that device's non-IPv4 rows join the IPv4 record
 - Overhead neighbor folds a broadcast discovery MAC into the named device and omits probes that got no reply. Those probes are listed with announcements whether or not anyone answered
 - Every column on the Network analysis page can be sorted
+- Occupied and Free show how many addresses are in each list
+- Overhead neighbor lists an address that sends ARP even when that address sends no IPv4. Repeated ARP to the same address with no reply stays in Discovery
+- Discovery uses the same columns as Overhead neighbor: Instance, Address, Protocol, Traffic type, Service, and Packets. An ARP request is labeled with the address that sent it
+- This computer is listed in Overhead neighbors along with the other devices it hears
+- The subnet size in Network analysis is labeled Size of subnet, and the occupied count is labeled Neighbors
+- The announcements card is renamed Discovery
 - Analysis tab: group every flow by purpose. DNS-SD and UDP 2021 advertisements stay in an Announcements card, other traffic stays grouped until a dedicated analysis exists, and every other device on the local network appears under Local Neighbors, named from its announcement, hostname, or role such as Router or iPhone
 - IPFIX collector capabilities: receive and analyze network traffic from remote devices ([#1270](https://github.com/GyulyVGC/sniffnet/pull/1270) — fixes [#303](https://github.com/GyulyVGC/sniffnet/issues/303))
 - Show current data rates ([#1324](https://github.com/GyulyVGC/sniffnet/pull/1324) — fixes [#1077](https://github.com/GyulyVGC/sniffnet/issues/1077), [#1135](https://github.com/GyulyVGC/sniffnet/issues/1135))

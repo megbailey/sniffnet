@@ -133,11 +133,8 @@ pub struct Sniffer {
     pub announcement_filter: String,
     /// Active Overhead neighbor column and its sort direction.
     pub neighbor_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
-    /// Active announcements column and its sort direction.
-    pub announcement_sort: (
-        crate::gui::types::network_sort::AnnouncementColumn,
-        SortType,
-    ),
+    /// Active Discovery column and its sort direction.
+    pub announcement_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
     /// Active unparsed-group column and its sort direction.
     pub group_sort: (crate::gui::types::network_sort::GroupColumn, SortType),
     /// Sort direction of the occupied address list.
@@ -206,7 +203,7 @@ impl Sniffer {
                 SortType::Neutral,
             ),
             announcement_sort: (
-                crate::gui::types::network_sort::AnnouncementColumn::Packets,
+                crate::gui::types::network_sort::NeighborColumn::Packets,
                 SortType::Neutral,
             ),
             group_sort: (

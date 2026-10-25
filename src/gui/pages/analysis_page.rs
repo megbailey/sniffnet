@@ -14,7 +14,7 @@ use crate::gui::styles::text::TextType;
 use crate::gui::styles::text_input::TextInputType;
 use crate::gui::types::message::Message;
 use crate::gui::types::network_sort::{
-    AnnouncementColumn, GroupColumn, NeighborColumn, NetworkSort, directed, ipv4_order, shown_order,
+    GroupColumn, NeighborColumn, NetworkSort, directed, ipv4_order, shown_order,
 };
 use crate::gui::types::settings::Settings;
 use crate::networking::analysis::{
@@ -22,18 +22,17 @@ use crate::networking::analysis::{
 };
 use crate::networking::announcements::{AnnouncementGroup, grouped_announcements};
 use crate::networking::neighbors::LocalNeighbor;
-use crate::networking::sweep::discovery_pings;
+use crate::networking::sweep::{DiscoveryPing, discovery_pings};
 use crate::networking::types::data_representation::DataRepr;
 use crate::report::types::sort_type::SortType;
 use crate::translations::translations::{
-    address_translation, bytes_translation, packets_translation,
+    address_translation, bytes_translation, packets_translation, protocol_translation,
 };
 use crate::translations::translations_3::service_translation;
 use crate::translations::translations_6::{
-    analysis_translation, announcements_translation, instance_translation,
-    local_neighbors_translation, model_translation, neighbor_translation,
-    no_announcements_translation, no_local_neighbors_translation, no_other_traffic_translation,
-    not_parsed_yet_translation, sweep_ping_translation, traffic_translation,
+    analysis_translation, announcements_translation, arp_translation, instance_translation,
+    local_neighbors_translation, no_announcements_translation, no_local_neighbors_translation,
+    no_other_traffic_translation, not_parsed_yet_translation, sweep_ping_translation,
     traffic_type_translation, unknown_purpose_translation,
 };
 use crate::{RunningPage, Sniffer, StyleType};
@@ -103,7 +102,12 @@ pub(crate) fn announcements_card<'a>(
         );
     } else if !rows.is_empty() || !pings.is_empty() {
         listed = listed
-            .push(announcement_header(language, sniffer.announcement_sort))
+            .push(device_header(
+                language,
+                sniffer.announcement_sort,
+                instance_translation(language),
+                |column| Message::NetworkAnalysisSort(NetworkSort::Announcement(column)),
+            ))
             .push(RuleType::Standard.horizontal(5));
         let mut combined = rows;
         combined.extend(pings);
@@ -156,7 +160,12 @@ pub(crate) fn neighbors_card<'a>(
         );
     } else {
         listed = listed
-            .push(neighbor_header(language, sniffer.neighbor_sort))
+            .push(device_header(
+                language,
+                sniffer.neighbor_sort,
+                instance_translation(language),
+                |column| Message::NetworkAnalysisSort(NetworkSort::Neighbor(column)),
+            ))
             .push(RuleType::Standard.horizontal(5));
         for neighbor in visible {
             listed = listed.push(neighbor_row(neighbor));
@@ -263,6 +272,16 @@ fn card<'a>(
     .class(ContainerType::BorderedRound)
 }
 
+fn ping_instance(language: crate::Language, ping: &DiscoveryPing) -> String {
+    if ping.arp && !ping.askers.is_empty() {
+        ping.askers.clone()
+    } else if ping.arp {
+        arp_translation(language).to_string()
+    } else {
+        sweep_ping_translation(language).to_string()
+    }
+}
+
 fn visible_pings(sniffer: &Sniffer) -> Vec<AnnouncementGroup> {
     let Settings { language, .. } = sniffer.conf.settings;
     let filter = filter_needle(sniffer);
@@ -272,18 +291,20 @@ fn visible_pings(sniffer: &Sniffer) -> Vec<AnnouncementGroup> {
     )
     .into_iter()
     .filter(|ping| {
+        let instance = ping_instance(language, ping);
         filter.is_empty()
-            || sweep_ping_translation(language)
-                .to_ascii_lowercase()
-                .contains(&filter)
+            || instance.to_ascii_lowercase().contains(&filter)
             || ping.detail.to_ascii_lowercase().contains(&filter)
+            || ping.protocols.to_ascii_lowercase().contains(&filter)
+            || ping.traffic.to_ascii_lowercase().contains(&filter)
             || ping.target.to_ascii_lowercase().contains(&filter)
     })
     .map(|ping| AnnouncementGroup {
-        instance: sweep_ping_translation(language).to_string(),
+        instance: ping_instance(language, &ping),
         service: ping.detail,
         addresses: ping.target,
-        traffic: "unicast".to_string(),
+        protocols: ping.protocols,
+        traffic: ping.traffic,
         model: String::new(),
         packets: ping.packets,
         bytes: ping.bytes,
@@ -299,6 +320,8 @@ fn visible_rows(sniffer: &Sniffer) -> Vec<AnnouncementGroup> {
             filter.is_empty()
                 || row.instance.to_ascii_lowercase().contains(&filter)
                 || row.service.to_ascii_lowercase().contains(&filter)
+                || row.protocols.to_ascii_lowercase().contains(&filter)
+                || row.traffic.to_ascii_lowercase().contains(&filter)
                 || row.model.to_ascii_lowercase().contains(&filter)
                 || row.addresses.to_ascii_lowercase().contains(&filter)
         })
@@ -328,6 +351,11 @@ fn visible_neighbors<'a>(
             filter.is_empty()
                 || neighbor.label.to_ascii_lowercase().contains(&filter)
                 || neighbor.services.to_ascii_lowercase().contains(&filter)
+                || neighbor.protocols.to_ascii_lowercase().contains(&filter)
+                || neighbor
+                    .traffic_types
+                    .to_ascii_lowercase()
+                    .contains(&filter)
                 || neighbor.address.to_ascii_lowercase().contains(&filter)
         })
         .collect();
@@ -346,26 +374,28 @@ fn sort_neighbors(rows: &mut [&LocalNeighbor], sort: (NeighborColumn, SortType))
                 .cmp(&ipv4_order(&right.address))
                 .then_with(|| left.address.cmp(&right.address)),
             NeighborColumn::Traffic => left.services.cmp(&right.services),
+            NeighborColumn::Protocol => left.protocols.cmp(&right.protocols),
+            NeighborColumn::TrafficType => left.traffic_types.cmp(&right.traffic_types),
             NeighborColumn::Packets => left.packets.cmp(&right.packets),
         };
         directed(sort.1, cmp)
     });
 }
 
-fn sort_announcements(rows: &mut [AnnouncementGroup], sort: (AnnouncementColumn, SortType)) {
+fn sort_announcements(rows: &mut [AnnouncementGroup], sort: (NeighborColumn, SortType)) {
     if sort.1 == SortType::Neutral {
         return;
     }
     rows.sort_by(|left, right| {
         let cmp = match sort.0 {
-            AnnouncementColumn::Instance => left.instance.cmp(&right.instance),
-            AnnouncementColumn::Traffic => left.service.cmp(&right.service),
-            AnnouncementColumn::Address => ipv4_order(&left.addresses)
+            NeighborColumn::Neighbor => left.instance.cmp(&right.instance),
+            NeighborColumn::Address => ipv4_order(&left.addresses)
                 .cmp(&ipv4_order(&right.addresses))
                 .then_with(|| left.addresses.cmp(&right.addresses)),
-            AnnouncementColumn::TrafficType => left.traffic.cmp(&right.traffic),
-            AnnouncementColumn::Model => left.model.cmp(&right.model),
-            AnnouncementColumn::Packets => left.packets.cmp(&right.packets),
+            NeighborColumn::Protocol => left.protocols.cmp(&right.protocols),
+            NeighborColumn::TrafficType => left.traffic.cmp(&right.traffic),
+            NeighborColumn::Traffic => left.service.cmp(&right.service),
+            NeighborColumn::Packets => left.packets.cmp(&right.packets),
         };
         directed(sort.1, cmp)
     });
@@ -385,118 +415,84 @@ fn sort_groups(rows: &mut [&TrafficGroup], sort: (GroupColumn, SortType)) {
     });
 }
 
-fn neighbor_header<'a>(
+fn device_header(
     language: crate::Language,
     sort: (NeighborColumn, SortType),
-) -> Row<'a, Message, StyleType> {
+    first_column: &str,
+    press: impl Fn(NeighborColumn) -> Message,
+) -> Row<'_, Message, StyleType> {
     Row::new()
         .width(Length::Fill)
         .spacing(8)
         .align_y(Alignment::Center)
         .push(header_cell(
-            neighbor_translation(language).to_string(),
+            first_column.to_string(),
             3,
             shown_order(&sort.0, sort.1, &NeighborColumn::Neighbor),
-            Message::NetworkAnalysisSort(NetworkSort::Neighbor(NeighborColumn::Neighbor)),
+            press(NeighborColumn::Neighbor),
         ))
         .push(header_cell(
             address_translation(language).to_string(),
             4,
             shown_order(&sort.0, sort.1, &NeighborColumn::Address),
-            Message::NetworkAnalysisSort(NetworkSort::Neighbor(NeighborColumn::Address)),
+            press(NeighborColumn::Address),
         ))
         .push(header_cell(
-            traffic_translation(language).to_string(),
+            protocol_translation(language).to_string(),
+            2,
+            shown_order(&sort.0, sort.1, &NeighborColumn::Protocol),
+            press(NeighborColumn::Protocol),
+        ))
+        .push(header_cell(
+            traffic_type_translation(language).to_string(),
+            2,
+            shown_order(&sort.0, sort.1, &NeighborColumn::TrafficType),
+            press(NeighborColumn::TrafficType),
+        ))
+        .push(header_cell(
+            service_translation(language).to_string(),
             3,
             shown_order(&sort.0, sort.1, &NeighborColumn::Traffic),
-            Message::NetworkAnalysisSort(NetworkSort::Neighbor(NeighborColumn::Traffic)),
+            press(NeighborColumn::Traffic),
         ))
         .push(header_cell(
             packets_translation(language).to_string(),
             1,
             shown_order(&sort.0, sort.1, &NeighborColumn::Packets),
-            Message::NetworkAnalysisSort(NetworkSort::Neighbor(NeighborColumn::Packets)),
+            press(NeighborColumn::Packets),
         ))
 }
 
-fn neighbor_row(neighbor: &LocalNeighbor) -> Row<'static, Message, StyleType> {
-    let services = if neighbor.services.is_empty() {
+fn shown(value: &str) -> String {
+    if value.is_empty() {
         "—".to_string()
     } else {
-        neighbor.services.clone()
-    };
+        value.to_string()
+    }
+}
+
+fn neighbor_row(neighbor: &LocalNeighbor) -> Row<'static, Message, StyleType> {
     Row::new()
         .width(Length::Fill)
         .spacing(8)
         .align_y(Alignment::Center)
         .push(cell(neighbor.label.clone(), 3, false))
         .push(cell(neighbor.address.clone(), 4, false))
-        .push(cell(services, 3, false))
+        .push(cell(shown(&neighbor.protocols), 2, false))
+        .push(cell(shown(&neighbor.traffic_types), 2, false))
+        .push(cell(shown(&neighbor.services), 3, false))
         .push(cell(neighbor.packets.to_string(), 1, false))
 }
 
-fn announcement_header<'a>(
-    language: crate::Language,
-    sort: (AnnouncementColumn, SortType),
-) -> Row<'a, Message, StyleType> {
-    Row::new()
-        .width(Length::Fill)
-        .spacing(8)
-        .align_y(Alignment::Center)
-        .push(header_cell(
-            instance_translation(language).to_string(),
-            3,
-            shown_order(&sort.0, sort.1, &AnnouncementColumn::Instance),
-            Message::NetworkAnalysisSort(NetworkSort::Announcement(AnnouncementColumn::Instance)),
-        ))
-        .push(header_cell(
-            traffic_translation(language).to_string(),
-            3,
-            shown_order(&sort.0, sort.1, &AnnouncementColumn::Traffic),
-            Message::NetworkAnalysisSort(NetworkSort::Announcement(AnnouncementColumn::Traffic)),
-        ))
-        .push(header_cell(
-            address_translation(language).to_string(),
-            3,
-            shown_order(&sort.0, sort.1, &AnnouncementColumn::Address),
-            Message::NetworkAnalysisSort(NetworkSort::Announcement(AnnouncementColumn::Address)),
-        ))
-        .push(header_cell(
-            traffic_type_translation(language).to_string(),
-            2,
-            shown_order(&sort.0, sort.1, &AnnouncementColumn::TrafficType),
-            Message::NetworkAnalysisSort(NetworkSort::Announcement(
-                AnnouncementColumn::TrafficType,
-            )),
-        ))
-        .push(header_cell(
-            model_translation(language).to_string(),
-            2,
-            shown_order(&sort.0, sort.1, &AnnouncementColumn::Model),
-            Message::NetworkAnalysisSort(NetworkSort::Announcement(AnnouncementColumn::Model)),
-        ))
-        .push(header_cell(
-            packets_translation(language).to_string(),
-            1,
-            shown_order(&sort.0, sort.1, &AnnouncementColumn::Packets),
-            Message::NetworkAnalysisSort(NetworkSort::Announcement(AnnouncementColumn::Packets)),
-        ))
-}
-
 fn announcement_row(row: &AnnouncementGroup) -> Row<'static, Message, StyleType> {
-    let model = if row.model.is_empty() {
-        "—".to_string()
-    } else {
-        row.model.clone()
-    };
     Row::new()
         .width(Length::Fill)
         .spacing(8)
-        .push(cell(row.instance.clone(), 3, false))
-        .push(cell(row.service.clone(), 3, false))
-        .push(cell(row.addresses.clone(), 3, false))
-        .push(cell(row.traffic.clone(), 2, false))
-        .push(cell(model, 2, false))
+        .push(cell(shown(&row.instance), 3, false))
+        .push(cell(shown(&row.addresses), 4, false))
+        .push(cell(shown(&row.protocols), 2, false))
+        .push(cell(shown(&row.traffic), 2, false))
+        .push(cell(shown(&row.service), 3, false))
         .push(cell(row.packets.to_string(), 1, false))
 }
 

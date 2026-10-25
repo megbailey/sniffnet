@@ -9,9 +9,13 @@ use std::time::{Duration, Instant};
 
 use pcap::Address;
 
+use crate::Protocol;
+use crate::networking::manage_packets::destination_traffic_type;
 use crate::networking::neighbors::{is_gateway, on_this_network};
 use crate::networking::types::address_port_pair::AddressPortPair;
 use crate::networking::types::info_address_port_pair::InfoAddressPortPair;
+use crate::networking::types::traffic_type::TrafficType;
+use crate::utils::formatted_strings::mac_from_dec_to_hex;
 use crate::utils::types::timestamp::Timestamp;
 
 /// How long an address must keep appearing before it is treated as occupied.
@@ -261,38 +265,85 @@ pub struct DiscoveryPing {
     pub target: String,
     /// Service name and destination port, when either is known.
     pub detail: String,
+    /// Packet protocols used by the probes.
+    pub protocols: String,
+    /// Unicast, multicast, or broadcast.
+    pub traffic: String,
     /// Packets in the probes to this address.
     pub packets: u128,
     /// Bytes of those probes.
     pub bytes: u128,
+    /// Repeated ARP aimed at this address, with no reply.
+    pub arp: bool,
+    /// Addresses that sent those ARP requests.
+    pub askers: String,
 }
 
 const DISCOVERY_MAC: [u8; 6] = [0xff; 6];
 
+#[derive(Default)]
+struct PingAcc {
+    details: BTreeSet<String>,
+    protocols: BTreeSet<String>,
+    traffic_types: BTreeSet<String>,
+    askers: BTreeSet<String>,
+    packets: u128,
+    bytes: u128,
+    /// A non-ARP discovery probe was also sent to this address.
+    swept: bool,
+}
+
 /// Local probes sent with the broadcast discovery MAC, whether or not the address replied.
+///
+/// Repeated ARP to the same address is included only when that address never replies. A single
+/// ARP probe, and ARP to an address that does reply, are left out.
 pub fn discovery_pings(
     map: &HashMap<AddressPortPair, InfoAddressPortPair>,
     local_addresses: &[Address],
 ) -> Vec<DiscoveryPing> {
-    let mut grouped: HashMap<IpAddr, (BTreeSet<String>, u128, u128)> = HashMap::new();
+    let sources: HashSet<IpAddr> = map.keys().map(|key| key.src_ip).collect();
+    let mut grouped: HashMap<IpAddr, PingAcc> = HashMap::new();
     for (key, info) in map {
+        if key.protocol == Protocol::Arp {
+            continue;
+        }
         if info.dst_mac != Some(DISCOVERY_MAC) || !on_this_network(&key.dst_ip, local_addresses) {
             continue;
         }
         let entry = grouped.entry(key.dst_ip).or_default();
         entry
-            .0
+            .details
             .insert(attempt_detail(&info.service.to_string(), key.dst_port));
-        entry.1 = entry.1.saturating_add(info.packets);
-        entry.2 = entry.2.saturating_add(info.bytes);
+        entry.protocols.insert(key.protocol.to_string());
+        entry.traffic_types.insert(
+            traffic_name(destination_traffic_type(&key.dst_ip, local_addresses)).to_string(),
+        );
+        entry.packets = entry.packets.saturating_add(info.packets);
+        entry.bytes = entry.bytes.saturating_add(info.bytes);
+        entry.swept = true;
+    }
+    for probe in repeated_arp_without_reply(map, local_addresses, &sources) {
+        let entry = grouped.entry(probe.target).or_default();
+        entry.protocols.insert("ARP".to_string());
+        entry.traffic_types.extend(probe.traffic);
+        entry.askers.extend(probe.askers);
+        entry.packets = entry.packets.saturating_add(probe.packets);
+        entry.bytes = entry.bytes.saturating_add(probe.bytes);
     }
     let mut pings: Vec<_> = grouped
         .into_iter()
-        .map(|(target, (details, packets, bytes))| DiscoveryPing {
-            target: target.to_string(),
-            detail: details.into_iter().collect::<Vec<_>>().join(", "),
-            packets,
-            bytes,
+        .map(|(target, acc)| {
+            let protocols = acc.protocols.into_iter().collect::<Vec<_>>().join(", ");
+            DiscoveryPing {
+                arp: !acc.swept && protocols == "ARP",
+                target: target.to_string(),
+                detail: acc.details.into_iter().collect::<Vec<_>>().join(", "),
+                protocols,
+                traffic: acc.traffic_types.into_iter().collect::<Vec<_>>().join(", "),
+                packets: acc.packets,
+                bytes: acc.bytes,
+                askers: acc.askers.into_iter().collect::<Vec<_>>().join(", "),
+            }
         })
         .collect();
     pings.sort_by(|left, right| {
@@ -302,6 +353,103 @@ pub fn discovery_pings(
             .then_with(|| left.target.cmp(&right.target))
     });
     pings
+}
+
+struct RepeatedArp {
+    target: IpAddr,
+    packets: u128,
+    bytes: u128,
+    traffic: BTreeSet<String>,
+    askers: BTreeSet<String>,
+}
+
+struct ArpAsk {
+    first: Timestamp,
+    last: Timestamp,
+    packets: u128,
+    bytes: u128,
+    traffic: BTreeSet<String>,
+    askers: BTreeSet<String>,
+}
+
+/// ARP aimed at one local address, with no packet back from that address, across at least 30 seconds.
+fn repeated_arp_without_reply(
+    map: &HashMap<AddressPortPair, InfoAddressPortPair>,
+    local_addresses: &[Address],
+    sources: &HashSet<IpAddr>,
+) -> Vec<RepeatedArp> {
+    let mut asks: HashMap<IpAddr, ArpAsk> = HashMap::new();
+    for (key, info) in map {
+        if key.protocol != Protocol::Arp
+            || sources.contains(&key.dst_ip)
+            || !on_this_network(&key.dst_ip, local_addresses)
+        {
+            continue;
+        }
+        let traffic = traffic_name(destination_traffic_type(&key.dst_ip, local_addresses));
+        let asker = asker_label(key.src_ip, info.src_mac);
+        asks.entry(key.dst_ip)
+            .and_modify(|seen| {
+                if info.initial_timestamp < seen.first {
+                    seen.first = info.initial_timestamp;
+                }
+                if info.final_timestamp > seen.last {
+                    seen.last = info.final_timestamp;
+                }
+                seen.packets = seen.packets.saturating_add(info.packets);
+                seen.bytes = seen.bytes.saturating_add(info.bytes);
+                seen.traffic.insert(traffic.to_string());
+                seen.askers.insert(asker.clone());
+            })
+            .or_insert(ArpAsk {
+                first: info.initial_timestamp,
+                last: info.final_timestamp,
+                packets: info.packets,
+                bytes: info.bytes,
+                traffic: BTreeSet::from([traffic.to_string()]),
+                askers: BTreeSet::from([asker]),
+            });
+    }
+    asks.into_iter()
+        .filter(|(_, seen)| spans_exchange(seen.first, seen.last))
+        .map(|(target, seen)| RepeatedArp {
+            target,
+            packets: seen.packets,
+            bytes: seen.bytes,
+            traffic: seen.traffic,
+            askers: seen.askers,
+        })
+        .collect()
+}
+
+fn asker_label(source: IpAddr, mac: Option<[u8; 6]>) -> String {
+    match mac {
+        Some(mac) if mac != [0xff; 6] => {
+            format!("{source}, {}", mac_from_dec_to_hex(mac))
+        }
+        _ => source.to_string(),
+    }
+}
+
+fn traffic_name(traffic: TrafficType) -> &'static str {
+    match traffic {
+        TrafficType::Unicast => "unicast",
+        TrafficType::Multicast => "multicast",
+        TrafficType::Broadcast => "broadcast",
+    }
+}
+
+fn spans_exchange(first: Timestamp, last: Timestamp) -> bool {
+    let Some(start) = first.to_usecs() else {
+        return false;
+    };
+    let Some(end) = last.to_usecs() else {
+        return false;
+    };
+    let Some(span) = end.checked_sub(start) else {
+        return false;
+    };
+    span >= i64::try_from(MIN_OCCUPIED.as_micros()).unwrap_or(i64::MAX)
 }
 
 fn attempt_detail(service: &str, port: Option<u16>) -> String {
@@ -543,5 +691,89 @@ mod tests {
         assert_eq!(pings[0].packets, 2);
         assert_eq!(pings[1].target, "192.168.1.180");
         assert_eq!(pings[1].packets, 1);
+        assert!(!pings[0].arp);
+        assert!(!pings[1].arp);
+    }
+
+    #[test]
+    fn repeated_arp_without_a_reply_stays_a_discovery_ping() {
+        let mut map = HashMap::new();
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 166)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 4,
+                bytes: 168,
+                dst_mac: Some([0xff; 6]),
+                initial_timestamp: Timestamp::new(5, 0),
+                final_timestamp: Timestamp::new(45, 0),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 180)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 1,
+                bytes: 42,
+                dst_mac: Some([0xff; 6]),
+                initial_timestamp: Timestamp::new(10, 0),
+                final_timestamp: Timestamp::new(10, 0),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 101)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 3,
+                bytes: 126,
+                dst_mac: Some([0xff; 6]),
+                initial_timestamp: Timestamp::new(5, 0),
+                final_timestamp: Timestamp::new(50, 0),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 101)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 2,
+                bytes: 84,
+                initial_timestamp: Timestamp::new(5, 0),
+                final_timestamp: Timestamp::new(50, 0),
+                ..Default::default()
+            },
+        );
+
+        let pings = discovery_pings(&map, &locals());
+        assert_eq!(pings.len(), 1);
+        assert_eq!(pings[0].target, "192.168.1.166");
+        assert_eq!(pings[0].protocols, "ARP");
+        assert_eq!(pings[0].traffic, "unicast");
+        assert_eq!(pings[0].detail, "");
+        assert_eq!(pings[0].askers, "192.168.1.254");
+        assert_eq!(pings[0].packets, 4);
+        assert!(pings[0].arp);
     }
 }

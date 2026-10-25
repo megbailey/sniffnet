@@ -28,6 +28,8 @@ pub struct AnnouncementGroup {
     pub service: String,
     /// One IPv4 address and the MAC from the frame that sent it, when both are known.
     pub addresses: String,
+    /// Packet protocols, such as `UDP` or `ARP`.
+    pub protocols: String,
     /// Comma-separated traffic kinds observed for this identity.
     pub traffic: String,
     /// Optional model string from TXT or a vendor header.
@@ -158,6 +160,7 @@ pub fn grouped_announcements(
             instance,
             service,
             addresses: choose_pair(&bucket.pairs),
+            protocols: "UDP".to_string(),
             traffic: traffic_name(traffic).to_string(),
             model: bucket.model,
             packets: bucket.packets,

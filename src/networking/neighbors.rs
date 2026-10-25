@@ -7,6 +7,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::net::IpAddr;
 
 use pcap::Address;
+use sniffnet_packet_parser::Protocol;
 
 use crate::networking::announcements::{AnnouncementInfo, AnnouncementKey};
 use crate::networking::manage_packets::{
@@ -24,6 +25,10 @@ pub struct LocalNeighbor {
     pub label: String,
     /// Service types advertised by this device.
     pub services: String,
+    /// Packet protocols this device used, such as `UDP, ARP`.
+    pub protocols: String,
+    /// Unicast, multicast, or broadcast.
+    pub traffic_types: String,
     /// Addresses observed for the device.
     pub address: String,
     /// Packets this device exchanged with the host, or advertised on the local network.
@@ -35,6 +40,8 @@ pub struct LocalNeighbor {
 #[derive(Default)]
 struct Bucket {
     services: BTreeSet<String>,
+    protocols: BTreeSet<String>,
+    traffic_types: BTreeSet<String>,
     packets: u128,
     bytes: u128,
     rank: u8,
@@ -43,9 +50,13 @@ struct Bucket {
 }
 
 impl Bucket {
-    fn note_kind(&mut self, kind: &str) {
+    fn note_protocol(&mut self, protocol: Protocol) {
+        self.protocols.insert(protocol.to_string());
+    }
+
+    fn note_traffic_type(&mut self, kind: &str) {
         if !kind.is_empty() {
-            self.services.insert(kind.to_string());
+            self.traffic_types.insert(kind.to_string());
         }
     }
 
@@ -73,14 +84,19 @@ impl Bucket {
 
     fn absorb(&mut self, other: &Self) {
         self.services.extend(other.services.iter().cloned());
+        self.protocols.extend(other.protocols.iter().cloned());
+        self.traffic_types
+            .extend(other.traffic_types.iter().cloned());
         self.add_traffic(other.packets, other.bytes);
         self.note_service("", other.rank, &other.role, &other.instance);
     }
 }
 
-/// Every other device on this network that appears in the capture.
+/// Every other device on this network that appears in the capture, including this computer.
 ///
 /// Rows that share an IPv4 address and MAC are one neighbor, and their traffic names are joined.
+/// An address that sends ARP is included with no IPv4 of its own. Repeated ARP that never gets a
+/// reply stays in Discovery instead of becoming a neighbor.
 /// `names` maps an address to a hostname such as `kikkomanpad.local`.
 pub fn local_neighbors(
     announcements: &HashMap<AnnouncementKey, AnnouncementInfo>,
@@ -93,14 +109,14 @@ pub fn local_neighbors(
     let mut linked_addresses: HashMap<IpAddr, HashSet<IpAddr>> = HashMap::new();
 
     for (key, info) in announcements {
-        if !on_this_network(&key.source, local_addresses) {
+        if !is_neighbor_address(&key.source, local_addresses) {
             continue;
         }
         let (rank, role) = role_of(&key.service, &key.instance);
         let mac = key.source.is_ipv4().then(|| info.source_mac()).flatten();
         let bucket = rows.entry((key.source, mac)).or_default();
         bucket.note_service(&key.service, rank, &role, &key.instance);
-        bucket.note_kind(traffic_label(key.traffic));
+        bucket.note_traffic_type(traffic_label(key.traffic));
         note_device_name(&mut device_names, key.source, &key.instance);
         for extra in &info.extra_addresses {
             note_device_name(&mut device_names, *extra, &key.instance);
@@ -115,45 +131,21 @@ pub fn local_neighbors(
         }
     }
 
-    let sources: HashSet<IpAddr> = map.keys().map(|key| key.src_ip).collect();
-    let mut frame_macs: HashMap<IpAddr, HashSet<[u8; 6]>> = HashMap::new();
-    let mut probed = HashSet::new();
-    let mut responded = HashSet::new();
-    for (key, info) in map {
-        if key.dst_ip.is_ipv4() && on_this_network(&key.dst_ip, local_addresses) {
-            probed.insert(key.dst_ip);
-        }
-        if key.src_ip.is_ipv4() && on_this_network(&key.src_ip, local_addresses) {
-            responded.insert(key.src_ip);
-        }
-        for (address, mac) in [(key.src_ip, info.src_mac), (key.dst_ip, info.dst_mac)] {
-            if let Some(mac) = mac
-                && !is_discovery_mac(mac)
-            {
-                frame_macs.entry(address).or_default().insert(mac);
-            }
-            if !sources.contains(&address) || !on_this_network(&address, local_addresses) {
-                continue;
-            }
-            let mac = address.is_ipv4().then_some(mac).flatten();
-            let bucket = rows.entry((address, mac)).or_default();
-            bucket.add_traffic(info.packets, info.bytes);
-            bucket.note_kind(traffic_label(destination_traffic_type(
-                &key.dst_ip,
-                local_addresses,
-            )));
-        }
-    }
+    let notes = record_flows(&mut rows, map, local_addresses);
     for (address, hostname) in names {
         note_device_name(&mut device_names, *address, hostname);
     }
 
     let rows = fold_bare_macs(rows);
-    let confirmed: HashSet<IpAddr> = probed.intersection(&responded).copied().collect();
+    let confirmed: HashSet<IpAddr> = notes
+        .probed
+        .intersection(&notes.responded)
+        .copied()
+        .collect();
     let rows = merge_non_ipv4(
         rows,
         &confirmed,
-        &frame_macs,
+        &notes.frame_macs,
         &device_names,
         &linked_addresses,
     );
@@ -171,7 +163,9 @@ pub fn local_neighbors(
                 &address,
                 local_addresses,
             ),
-            services: bucket.services.into_iter().collect::<Vec<_>>().join(", "),
+            services: joined(&bucket.services),
+            protocols: joined(&bucket.protocols),
+            traffic_types: joined(&bucket.traffic_types),
             address: format_pair(address, mac),
             packets: bucket.packets,
             bytes: bucket.bytes,
@@ -186,6 +180,58 @@ pub fn local_neighbors(
             .then_with(|| left.address.cmp(&right.address))
     });
     neighbors
+}
+
+struct FlowNotes {
+    frame_macs: HashMap<IpAddr, HashSet<[u8; 6]>>,
+    probed: HashSet<IpAddr>,
+    responded: HashSet<IpAddr>,
+}
+
+fn record_flows(
+    rows: &mut HashMap<(IpAddr, Option<[u8; 6]>), Bucket>,
+    map: &HashMap<AddressPortPair, InfoAddressPortPair>,
+    local_addresses: &[Address],
+) -> FlowNotes {
+    let sources: HashSet<IpAddr> = map.keys().map(|key| key.src_ip).collect();
+    let mut frame_macs: HashMap<IpAddr, HashSet<[u8; 6]>> = HashMap::new();
+    let mut probed = HashSet::new();
+    let mut responded = HashSet::new();
+    for (key, info) in map {
+        if key.dst_ip.is_ipv4() && is_neighbor_address(&key.dst_ip, local_addresses) {
+            probed.insert(key.dst_ip);
+        }
+        if key.src_ip.is_ipv4() && is_neighbor_address(&key.src_ip, local_addresses) {
+            responded.insert(key.src_ip);
+        }
+        for (address, mac) in [(key.src_ip, info.src_mac), (key.dst_ip, info.dst_mac)] {
+            if let Some(mac) = mac
+                && !is_discovery_mac(mac)
+            {
+                frame_macs.entry(address).or_default().insert(mac);
+            }
+            if !sources.contains(&address) || !is_neighbor_address(&address, local_addresses) {
+                continue;
+            }
+            let mac = address.is_ipv4().then_some(mac).flatten();
+            let bucket = rows.entry((address, mac)).or_default();
+            bucket.add_traffic(info.packets, info.bytes);
+            bucket.note_protocol(key.protocol);
+            bucket.note_traffic_type(traffic_label(destination_traffic_type(
+                &key.dst_ip,
+                local_addresses,
+            )));
+        }
+    }
+    FlowNotes {
+        frame_macs,
+        probed,
+        responded,
+    }
+}
+
+fn joined(values: &BTreeSet<String>) -> String {
+    values.iter().cloned().collect::<Vec<_>>().join(", ")
 }
 
 fn note_device_name(names: &mut HashMap<IpAddr, HashSet<String>>, address: IpAddr, name: &str) {
@@ -421,20 +467,34 @@ fn label_for_hostname(name: &str) -> String {
 }
 
 pub(crate) fn on_this_network(address: &IpAddr, local_addresses: &[Address]) -> bool {
-    if address.is_multicast()
-        || address.is_unspecified()
-        || is_my_address(address, local_addresses)
-        || matches!(
-            destination_traffic_type(address, local_addresses),
-            TrafficType::Broadcast
-        )
-    {
+    if !is_remote_host(address, local_addresses) {
         return false;
     }
     if local_addresses.is_empty() {
         return false;
     }
     is_local_connection(address, local_addresses)
+}
+
+/// A device address worth listing, including this computer's own interface address.
+fn is_neighbor_address(address: &IpAddr, local_addresses: &[Address]) -> bool {
+    if address.is_loopback() {
+        return false;
+    }
+    if is_my_address(address, local_addresses) {
+        return !address.is_multicast() && !address.is_unspecified();
+    }
+    on_this_network(address, local_addresses)
+}
+
+fn is_remote_host(address: &IpAddr, local_addresses: &[Address]) -> bool {
+    !(address.is_multicast()
+        || address.is_unspecified()
+        || is_my_address(address, local_addresses)
+        || matches!(
+            destination_traffic_type(address, local_addresses),
+            TrafficType::Broadcast
+        ))
 }
 
 pub(crate) fn is_gateway(address: &IpAddr, local_addresses: &[Address]) -> bool {
@@ -582,19 +642,22 @@ mod tests {
         assert_eq!(
             labels,
             vec![
+                "192.168.1.171",
                 "AirPlay — mb's macbook",
                 "TV — Hisense Xumo TV",
                 "Chromecast — Living Room",
             ]
         );
-        assert_eq!(neighbors[0].packets, 8);
-        assert_eq!(
-            neighbors[0].services,
-            "_airplay._tcp, _raop._tcp, multicast"
-        );
-        assert_eq!(neighbors[0].address, "192.168.1.52");
-        assert_eq!(neighbors[1].packets, 5);
-        assert_eq!(neighbors[2].label, "Chromecast — Living Room");
+        let macbook = neighbors
+            .iter()
+            .find(|neighbor| neighbor.address == "192.168.1.52")
+            .unwrap();
+        assert_eq!(macbook.packets, 8);
+        assert_eq!(macbook.services, "_airplay._tcp, _raop._tcp");
+        assert_eq!(macbook.protocols, "UDP");
+        assert_eq!(macbook.traffic_types, "multicast");
+        assert_eq!(neighbors[2].packets, 5);
+        assert_eq!(neighbors[3].label, "Chromecast — Living Room");
     }
 
     #[test]
@@ -618,14 +681,13 @@ mod tests {
         assert_eq!(neighbors.len(), 1);
         assert_eq!(neighbors[0].label, "TV — Hisense Xumo TV");
         assert_eq!(neighbors[0].packets, 4);
-        assert_eq!(
-            neighbors[0].services,
-            "_airplay._tcp, _raop._tcp, multicast, unicast"
-        );
+        assert_eq!(neighbors[0].services, "_airplay._tcp, _raop._tcp");
+        assert_eq!(neighbors[0].protocols, "UDP");
+        assert_eq!(neighbors[0].traffic_types, "multicast, unicast");
     }
 
     #[test]
-    fn lan_peers_are_listed_and_this_host_is_not() {
+    fn lan_peers_and_this_host_are_listed() {
         let mut announcements = HashMap::new();
         let (other_key, other_info) =
             announced("Other Speaker", "_airplay._tcp", [192, 168, 1, 60], 2);
@@ -650,7 +712,15 @@ mod tests {
             .iter()
             .map(|neighbor| neighbor.label.as_str())
             .collect();
-        assert_eq!(labels, vec!["AirPlay — Other Speaker"]);
+        assert_eq!(
+            labels,
+            vec!["AirPlay — mb's macbook", "AirPlay — Other Speaker"]
+        );
+        assert!(
+            neighbors
+                .iter()
+                .any(|neighbor| neighbor.address == "192.168.1.171")
+        );
     }
 
     #[test]
@@ -789,7 +859,9 @@ mod tests {
             .find(|neighbor| neighbor.address == "192.168.1.52")
             .unwrap();
         assert_eq!(continuity.label, "Continuity — mb's macbook");
-        assert_eq!(continuity.services, "_companion-link._tcp, multicast");
+        assert_eq!(continuity.services, "_companion-link._tcp");
+        assert_eq!(continuity.protocols, "UDP");
+        assert_eq!(continuity.traffic_types, "multicast");
         assert_eq!(continuity.packets, 4);
         let hostname = neighbors
             .iter()
@@ -835,10 +907,9 @@ mod tests {
         assert_eq!(neighbors.len(), 1);
         assert_eq!(neighbors[0].address, "192.168.1.52, aa:bb:cc:dd:ee:ff");
         assert_eq!(neighbors[0].packets, 4);
-        assert_eq!(
-            neighbors[0].services,
-            "_airplay._tcp, _raop._tcp, multicast"
-        );
+        assert_eq!(neighbors[0].services, "_airplay._tcp, _raop._tcp");
+        assert_eq!(neighbors[0].protocols, "UDP");
+        assert_eq!(neighbors[0].traffic_types, "multicast");
     }
 
     #[test]
@@ -976,10 +1047,110 @@ mod tests {
         );
 
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
-        assert_eq!(neighbors.len(), 1);
-        assert_eq!(neighbors[0].label, "Printer — tsuki-dreams-3DP");
-        assert_eq!(neighbors[0].address, "192.168.1.149, 20:0d:3d:fc:cf:cb");
-        assert_eq!(neighbors[0].packets, 8);
-        assert!(!neighbors[0].address.contains("ff:ff:ff:ff:ff:ff"));
+        let printer = neighbors
+            .iter()
+            .find(|neighbor| neighbor.label == "Printer — tsuki-dreams-3DP")
+            .unwrap();
+        assert_eq!(printer.address, "192.168.1.149, 20:0d:3d:fc:cf:cb");
+        assert_eq!(printer.packets, 8);
+        assert!(!printer.address.contains("ff:ff:ff:ff:ff:ff"));
+        assert!(
+            neighbors
+                .iter()
+                .any(|neighbor| neighbor.address == "192.168.1.171")
+        );
+    }
+
+    #[test]
+    fn an_arp_reply_without_ipv4_is_a_neighbor_and_a_one_shot_probe_is_not() {
+        use crate::networking::types::message_type::MessageType;
+        use crate::utils::types::timestamp::Timestamp;
+        use sniffnet_packet_parser::ArpType;
+
+        let mac = [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x10];
+        let mut map = HashMap::new();
+        let mut reply_types = HashMap::new();
+        reply_types.insert(MessageType::Arp(ArpType::Reply), 2);
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 101)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 171)),
+                None,
+                crate::Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 2,
+                bytes: 84,
+                src_mac: Some(mac),
+                message_types: reply_types,
+                ..Default::default()
+            },
+        );
+        let mut asked_once = HashMap::new();
+        asked_once.insert(MessageType::Arp(ArpType::Request), 1);
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 180)),
+                None,
+                crate::Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 1,
+                bytes: 42,
+                message_types: asked_once,
+                initial_timestamp: Timestamp::new(10, 0),
+                final_timestamp: Timestamp::new(10, 0),
+                ..Default::default()
+            },
+        );
+        let mut kept_asking = HashMap::new();
+        kept_asking.insert(MessageType::Arp(ArpType::Request), 4);
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 166)),
+                None,
+                crate::Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 4,
+                bytes: 168,
+                dst_mac: Some([0xff; 6]),
+                message_types: kept_asking,
+                initial_timestamp: Timestamp::new(5, 0),
+                final_timestamp: Timestamp::new(45, 0),
+                ..Default::default()
+            },
+        );
+
+        let neighbors = local_neighbors(&HashMap::new(), &map, &local_host(), &HashMap::new());
+        let reply = neighbors
+            .iter()
+            .find(|neighbor| neighbor.address.starts_with("192.168.1.101"))
+            .unwrap();
+        assert_eq!(reply.address, "192.168.1.101, aa:bb:cc:dd:ee:10");
+        assert_eq!(reply.packets, 2);
+        assert_eq!(reply.protocols, "ARP");
+        assert_eq!(reply.traffic_types, "unicast");
+        assert!(reply.services.is_empty());
+        assert!(
+            neighbors
+                .iter()
+                .all(|neighbor| !neighbor.address.contains("192.168.1.166"))
+        );
+        assert!(
+            neighbors
+                .iter()
+                .all(|neighbor| !neighbor.address.contains("192.168.1.180"))
+        );
+        assert!(
+            neighbors
+                .iter()
+                .all(|neighbor| !neighbor.address.contains("192.168.1.171"))
+        );
     }
 }
