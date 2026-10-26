@@ -12,3 +12,4 @@ pub mod thumbnail_page;
 pub mod types;
 pub mod waiting_page;
 pub mod welcome_page;
+pub mod your_traffic_page;

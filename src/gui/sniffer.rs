@@ -7,7 +7,6 @@ use crate::gui::components::modal::{
     get_clear_all_overlay, get_exit_overlay, get_update_status_overlay, modal,
 };
 use crate::gui::components::types::my_modal::MyModal;
-use crate::gui::pages::analysis_page::analysis_page;
 use crate::gui::pages::connection_details_page::connection_details_page;
 use crate::gui::pages::initial_page::initial_page;
 use crate::gui::pages::inspect_page::inspect_page;
@@ -22,6 +21,7 @@ use crate::gui::pages::types::running_page::RunningPage;
 use crate::gui::pages::types::settings_page::SettingsPage;
 use crate::gui::pages::waiting_page::waiting_page;
 use crate::gui::pages::welcome_page::welcome_page;
+use crate::gui::pages::your_traffic_page::your_traffic_page;
 use crate::gui::styles::types::custom_palette::CustomPalette;
 use crate::gui::styles::types::gradient_type::GradientType;
 use crate::gui::styles::types::palette::Palette;
@@ -131,10 +131,12 @@ pub struct Sniffer {
     pub search: SearchParameters,
     /// Text filter for the analysis page. It is cleared when a capture resets.
     pub announcement_filter: String,
-    /// Active Overhead neighbor column and its sort direction.
+    /// Active Overheard Neighbors column and its sort direction.
     pub neighbor_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
     /// Active Discovery column and its sort direction.
     pub announcement_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
+    /// Active Your traffic column and its sort direction.
+    pub your_traffic_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
     /// Active unparsed-group column and its sort direction.
     pub group_sort: (crate::gui::types::network_sort::GroupColumn, SortType),
     /// Sort direction of the occupied address list.
@@ -203,6 +205,10 @@ impl Sniffer {
                 SortType::Neutral,
             ),
             announcement_sort: (
+                crate::gui::types::network_sort::NeighborColumn::Packets,
+                SortType::Neutral,
+            ),
+            your_traffic_sort: (
                 crate::gui::types::network_sort::NeighborColumn::Packets,
                 SortType::Neutral,
             ),
@@ -446,7 +452,7 @@ impl Sniffer {
                         match running_page {
                             RunningPage::Overview => overview_page(self),
                             RunningPage::Inspect => inspect_page(self),
-                            RunningPage::Analysis => analysis_page(self),
+                            RunningPage::YourTraffic => your_traffic_page(self),
                             RunningPage::NetworkSweep => network_sweep_page(self),
                             RunningPage::Notifications => notifications_page(self),
                         }
@@ -773,6 +779,7 @@ impl Sniffer {
         match sort {
             NetworkSort::Neighbor(column) => select_column(&mut self.neighbor_sort, column),
             NetworkSort::Announcement(column) => select_column(&mut self.announcement_sort, column),
+            NetworkSort::YourTraffic(column) => select_column(&mut self.your_traffic_sort, column),
             NetworkSort::Group(column) => select_column(&mut self.group_sort, column),
             NetworkSort::Occupied => self.occupied_sort = self.occupied_sort.next_sort(),
             NetworkSort::Free => self.free_sort = self.free_sort.next_sort(),

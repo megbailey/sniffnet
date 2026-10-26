@@ -17,13 +17,13 @@ use crate::networking::neighbors::{local_neighbors, neighbor_name};
 use crate::networking::sweep::sweep_report;
 use crate::report::types::sort_type::SortType;
 use crate::translations::translations_6::{
-    analysis_translation, free_ips_translation, investigated_translation, no_free_ips_translation,
-    no_occupied_ips_translation, no_reply_translation, occupied_ips_translation,
-    occupied_translation, of_translation, possible_addresses_translation,
+    free_ips_translation, network_sweep_translation, no_free_ips_translation,
+    no_occupied_ips_translation, occupied_ips_translation, occupied_translation, of_translation,
+    possible_addresses_translation,
 };
 use crate::{RunningPage, Sniffer, StyleType};
 
-/// Body of the network sweep page, to the right of Analysis.
+/// Body of the Your network page.
 pub fn network_sweep_page(sniffer: &Sniffer) -> Container<'_, Message, StyleType> {
     let Settings { language, .. } = sniffer.conf.settings;
     let tabs = get_pages_tabs(
@@ -39,16 +39,19 @@ pub fn network_sweep_page(sniffer: &Sniffer) -> Container<'_, Message, StyleType
     let announcements = traffic
         .iter()
         .find(|item| item.purpose == TrafficPurpose::Announcement);
-    let filter = TextInput::new(analysis_translation(language), &sniffer.announcement_filter)
-        .on_input(Message::AnnouncementFilter)
-        .padding([2, 5])
-        .size(FONT_SIZE_FOOTER)
-        .width(Length::Fill)
-        .class(if sniffer.announcement_filter.is_empty() {
-            TextInputType::Standard
-        } else {
-            TextInputType::Badge
-        });
+    let filter = TextInput::new(
+        network_sweep_translation(language),
+        &sniffer.announcement_filter,
+    )
+    .on_input(Message::AnnouncementFilter)
+    .padding([2, 5])
+    .size(FONT_SIZE_FOOTER)
+    .width(Length::Fill)
+    .class(if sniffer.announcement_filter.is_empty() {
+        TextInputType::Standard
+    } else {
+        TextInputType::Badge
+    });
 
     let names = sniffer
         .addresses_resolved
@@ -100,11 +103,6 @@ fn investigated_section(
     let mut stats = Column::new()
         .spacing(14)
         .width(Length::Fill)
-        .push(stat(
-            investigated_translation(language),
-            report.investigated,
-        ))
-        .push(stat(no_reply_translation(language), report.no_reply))
         .push(stat(
             possible_addresses_translation(language),
             report.possible,

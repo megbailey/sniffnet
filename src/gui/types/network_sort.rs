@@ -1,17 +1,19 @@
-//! Column sort choices for the Network analysis page.
+//! Column sort choices for Your network and Your traffic.
 
 use std::cmp::Ordering;
 use std::net::Ipv4Addr;
 
 use crate::report::types::sort_type::SortType;
 
-/// Which Network analysis table the click applies to.
+/// Which network table the click applies to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkSort {
-    /// Overhead neighbor table.
+    /// Overheard Neighbors table.
     Neighbor(NeighborColumn),
-    /// Discovery table. Columns match Overhead neighbors.
+    /// Discovery table. Columns match Overheard Neighbors.
     Announcement(NeighborColumn),
+    /// Traffic to and from this computer. Columns match Discovery.
+    YourTraffic(NeighborColumn),
     /// Unparsed announcement groups.
     Group(GroupColumn),
     /// Occupied address list.
@@ -20,7 +22,7 @@ pub enum NetworkSort {
     Free,
 }
 
-/// Columns of the Overhead neighbor table.
+/// Columns of the Overheard Neighbors table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NeighborColumn {
     /// Device label.

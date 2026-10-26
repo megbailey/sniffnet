@@ -175,13 +175,6 @@ pub fn current_rates_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn analysis_translation(language: Language) -> &'static str {
-    match language {
-        Language::EN => "Analysis",
-        _ => "Analysis",
-    }
-}
-
 pub fn announcements_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "Discovery",
@@ -203,45 +196,38 @@ pub fn not_parsed_yet_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn no_other_traffic_translation(language: Language) -> &'static str {
-    match language {
-        Language::EN => "No other traffic has been observed yet.",
-        _ => "No other traffic has been observed yet.",
-    }
-}
-
 pub fn local_neighbors_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Overhead neighbor",
-        _ => "Overhead neighbor",
+        Language::EN => "Overheard Neighbors",
+        _ => "Overheard Neighbors",
     }
 }
 
 pub fn no_local_neighbors_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "No overhead neighbors have been observed yet.",
-        _ => "No overhead neighbors have been observed yet.",
+        Language::EN => "No overheard neighbors have been observed yet.",
+        _ => "No overheard neighbors have been observed yet.",
     }
 }
 
 pub fn network_sweep_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Network analysis",
-        _ => "Network analysis",
+        Language::EN => "Your network",
+        _ => "Your network",
     }
 }
 
-pub fn investigated_translation(language: Language) -> &'static str {
+pub fn your_traffic_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Investigated",
-        _ => "Investigated",
+        Language::EN => "Your traffic",
+        _ => "Your traffic",
     }
 }
 
-pub fn no_reply_translation(language: Language) -> &'static str {
+pub fn no_your_traffic_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "No reply",
-        _ => "No reply",
+        Language::EN => "No traffic from this computer yet.",
+        _ => "No traffic from this computer yet.",
     }
 }
 

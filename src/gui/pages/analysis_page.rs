@@ -1,25 +1,21 @@
 use iced::widget::scrollable::Direction;
 use iced::widget::text::Wrapping;
 use iced::widget::tooltip::Position;
-use iced::widget::{Column, Container, Row, Scrollable, Text, TextInput, Tooltip, button};
+use iced::widget::{Column, Container, Row, Scrollable, Text, Tooltip, button};
 use iced::{Alignment, Element, Length, Padding};
 
 use crate::gui::components::ellipsized_text::EllipsizedText;
-use crate::gui::components::tab::get_pages_tabs;
 use crate::gui::styles::container::ContainerType;
 use crate::gui::styles::rule::RuleType;
 use crate::gui::styles::scrollbar::ScrollbarType;
 use crate::gui::styles::style_constants::{FONT_SIZE_FOOTER, FONT_SIZE_TITLE, TOOLTIP_DELAY};
 use crate::gui::styles::text::TextType;
-use crate::gui::styles::text_input::TextInputType;
 use crate::gui::types::message::Message;
 use crate::gui::types::network_sort::{
     GroupColumn, NeighborColumn, NetworkSort, directed, ipv4_order, shown_order,
 };
 use crate::gui::types::settings::Settings;
-use crate::networking::analysis::{
-    PurposeReport, TrafficGroup, TrafficPurpose, UNKNOWN_GROUP, report_traffic,
-};
+use crate::networking::analysis::{PurposeReport, TrafficGroup, UNKNOWN_GROUP};
 use crate::networking::announcements::{AnnouncementGroup, grouped_announcements};
 use crate::networking::neighbors::LocalNeighbor;
 use crate::networking::sweep::{DiscoveryPing, discovery_pings};
@@ -30,51 +26,11 @@ use crate::translations::translations::{
 };
 use crate::translations::translations_3::service_translation;
 use crate::translations::translations_6::{
-    analysis_translation, announcements_translation, arp_translation, instance_translation,
-    local_neighbors_translation, no_announcements_translation, no_local_neighbors_translation,
-    no_other_traffic_translation, not_parsed_yet_translation, sweep_ping_translation,
-    traffic_type_translation, unknown_purpose_translation,
+    announcements_translation, arp_translation, instance_translation, local_neighbors_translation,
+    no_announcements_translation, no_local_neighbors_translation, not_parsed_yet_translation,
+    sweep_ping_translation, traffic_type_translation, unknown_purpose_translation,
 };
-use crate::{RunningPage, Sniffer, StyleType};
-
-/// Body of the analysis page, to the right of Inspect.
-pub fn analysis_page(sniffer: &Sniffer) -> Container<'_, Message, StyleType> {
-    let Settings { language, .. } = sniffer.conf.settings;
-    let tabs = get_pages_tabs(
-        RunningPage::Analysis,
-        language,
-        sniffer.unread_notifications,
-    );
-    let report = report_traffic(&sniffer.info_traffic.map);
-    let unknown = report
-        .iter()
-        .find(|item| item.purpose == TrafficPurpose::Unknown);
-    let filter = TextInput::new(analysis_translation(language), &sniffer.announcement_filter)
-        .on_input(Message::AnnouncementFilter)
-        .padding([2, 5])
-        .size(FONT_SIZE_FOOTER)
-        .width(Length::Fill)
-        .class(if sniffer.announcement_filter.is_empty() {
-            TextInputType::Standard
-        } else {
-            TextInputType::Badge
-        });
-
-    let body = Column::new()
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(10)
-        .spacing(10)
-        .push(filter)
-        .push(
-            Row::new()
-                .spacing(10)
-                .height(Length::Fill)
-                .push(unknown_card(sniffer, unknown)),
-        );
-
-    Container::new(Column::new().push(tabs).push(body)).height(Length::Fill)
-}
+use crate::{Sniffer, StyleType};
 
 pub(crate) fn announcements_card<'a>(
     sniffer: &'a Sniffer,
@@ -198,43 +154,7 @@ fn neighbor_totals(neighbors: &[&LocalNeighbor]) -> (u128, u128) {
     })
 }
 
-fn unknown_card<'a>(
-    sniffer: &'a Sniffer,
-    report: Option<&PurposeReport>,
-) -> Container<'a, Message, StyleType> {
-    let Settings { language, .. } = sniffer.conf.settings;
-    let packets = report.map(|item| item.packets).unwrap_or_default();
-    let bytes = report.map(|item| item.bytes).unwrap_or_default();
-    let groups = visible_groups(sniffer, report.map_or(&[], |item| item.groups.as_slice()));
-
-    let mut listed = Column::new().spacing(2).width(Length::Fill);
-    if groups.is_empty() {
-        listed = listed.push(
-            Text::new(no_other_traffic_translation(language))
-                .size(FONT_SIZE_FOOTER)
-                .class(TextType::Dimmed),
-        );
-    } else {
-        listed = listed
-            .push(group_header(language))
-            .push(RuleType::Standard.horizontal(5));
-        for group in groups {
-            listed = listed.push(group_row(language, group));
-        }
-    }
-
-    card(
-        unknown_purpose_translation(language),
-        packets,
-        bytes,
-        Scrollable::with_direction(listed, Direction::Vertical(ScrollbarType::properties()))
-            .width(Length::Fill)
-            .height(Length::Fill),
-        Length::Fill,
-    )
-}
-
-fn card<'a>(
+pub(crate) fn card<'a>(
     title: &'a str,
     packets: u128,
     bytes: u128,
@@ -382,7 +302,7 @@ fn sort_neighbors(rows: &mut [&LocalNeighbor], sort: (NeighborColumn, SortType))
     });
 }
 
-fn sort_announcements(rows: &mut [AnnouncementGroup], sort: (NeighborColumn, SortType)) {
+pub(crate) fn sort_announcements(rows: &mut [AnnouncementGroup], sort: (NeighborColumn, SortType)) {
     if sort.1 == SortType::Neutral {
         return;
     }
@@ -415,7 +335,7 @@ fn sort_groups(rows: &mut [&TrafficGroup], sort: (GroupColumn, SortType)) {
     });
 }
 
-fn device_header(
+pub(crate) fn device_header(
     language: crate::Language,
     sort: (NeighborColumn, SortType),
     first_column: &str,
@@ -484,7 +404,7 @@ fn neighbor_row(neighbor: &LocalNeighbor) -> Row<'static, Message, StyleType> {
         .push(cell(neighbor.packets.to_string(), 1, false))
 }
 
-fn announcement_row(row: &AnnouncementGroup) -> Row<'static, Message, StyleType> {
+pub(crate) fn announcement_row(row: &AnnouncementGroup) -> Row<'static, Message, StyleType> {
     Row::new()
         .width(Length::Fill)
         .spacing(8)
@@ -522,15 +442,6 @@ fn sorted_group_header<'a>(
             shown_order(&sort.0, sort.1, &GroupColumn::Bytes),
             Message::NetworkAnalysisSort(NetworkSort::Group(GroupColumn::Bytes)),
         ))
-}
-
-fn group_header<'a>(language: crate::Language) -> Row<'a, Message, StyleType> {
-    Row::new()
-        .width(Length::Fill)
-        .spacing(8)
-        .push(cell(service_translation(language).to_string(), 3, true))
-        .push(cell(packets_translation(language).to_string(), 1, true))
-        .push(cell(bytes_translation(language).to_string(), 2, true))
 }
 
 fn group_row(language: crate::Language, group: &TrafficGroup) -> Row<'static, Message, StyleType> {

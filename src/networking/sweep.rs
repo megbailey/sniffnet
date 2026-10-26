@@ -49,7 +49,7 @@ pub struct SweepReport {
     pub occupied: u128,
     /// Occupied IPv4 addresses, lowest first.
     pub occupied_ips: Vec<String>,
-    /// Seen IPv4 addresses that are not currently occupied.
+    /// Addresses that sent traffic without settling, plus ARP targets that never replied.
     pub free_ips: Vec<String>,
     /// Subnet labels those possible addresses belong to, such as `192.168.1.0/24`.
     pub network: String,
@@ -124,8 +124,8 @@ struct Presence {
     seen: Instant,
 }
 
-/// Occupied addresses have been active for [`MIN_OCCUPIED`] and were seen within [`MAX_IDLE`].
-/// This host stays occupied. Anything seen on the subnet that fails that test is free.
+/// Occupied addresses have sent traffic for [`MIN_OCCUPIED`] and were heard within [`MAX_IDLE`].
+/// This host stays occupied. An ARP target that never replies is free, not a neighbor.
 fn live_addresses(
     map: &HashMap<AddressPortPair, InfoAddressPortPair>,
     local_addresses: &[Address],
@@ -133,28 +133,34 @@ fn live_addresses(
     now: Instant,
 ) -> (Vec<String>, Vec<String>) {
     let mut presence: HashMap<Ipv4Addr, Presence> = HashMap::new();
+    let mut silent_arp: HashSet<Ipv4Addr> = HashSet::new();
     for (key, info) in map {
-        for address in [key.src_ip, key.dst_ip] {
-            let IpAddr::V4(ip) = address else {
-                continue;
-            };
-            if !is_usable_host(ip, networks) {
-                continue;
-            }
-            let entry = presence.entry(ip).or_insert(Presence {
-                first: info.initial_timestamp,
-                last: info.final_timestamp,
-                seen: info.final_instant,
-            });
-            if info.initial_timestamp < entry.first {
-                entry.first = info.initial_timestamp;
-            }
-            if info.final_timestamp > entry.last {
-                entry.last = info.final_timestamp;
-            }
-            if info.final_instant > entry.seen {
-                entry.seen = info.final_instant;
-            }
+        if key.protocol == Protocol::Arp
+            && let IpAddr::V4(ip) = key.dst_ip
+            && is_usable_host(ip, networks)
+        {
+            silent_arp.insert(ip);
+        }
+        // Only a sender can become a neighbor. An ARP target stays free until it replies.
+        let IpAddr::V4(ip) = key.src_ip else {
+            continue;
+        };
+        if !is_usable_host(ip, networks) {
+            continue;
+        }
+        let entry = presence.entry(ip).or_insert(Presence {
+            first: info.initial_timestamp,
+            last: info.final_timestamp,
+            seen: info.final_instant,
+        });
+        if info.initial_timestamp < entry.first {
+            entry.first = info.initial_timestamp;
+        }
+        if info.final_timestamp > entry.last {
+            entry.last = info.final_timestamp;
+        }
+        if info.final_instant > entry.seen {
+            entry.seen = info.final_instant;
         }
     }
 
@@ -170,12 +176,18 @@ fn live_addresses(
     }
     let mut free = Vec::new();
     for (ip, seen) in presence {
+        silent_arp.remove(&ip);
         if ours.contains(&ip) {
             continue;
         }
         if held_long_enough(&seen) && still_present(&seen, now) {
             occupied.push(ip);
         } else {
+            free.push(ip);
+        }
+    }
+    for ip in silent_arp {
+        if !ours.contains(&ip) {
             free.push(ip);
         }
     }
@@ -529,7 +541,7 @@ mod tests {
         assert_eq!(report.possible, 254);
         assert_eq!(report.occupied, 1);
         assert_eq!(report.occupied_ips, vec!["192.168.1.171".to_string()]);
-        assert!(report.free_ips.iter().any(|ip| ip == "192.168.1.100"));
+        assert!(report.free_ips.iter().all(|ip| ip != "192.168.1.100"));
         assert!(report.free_ips.iter().any(|ip| ip == "192.168.1.87"));
         assert_eq!(report.network, "192.168.1.0/24");
         assert_eq!(report.attempts.len(), 3);
@@ -634,6 +646,62 @@ mod tests {
         assert!(report.free_ips.iter().any(|ip| ip == "192.168.1.66"));
         assert!(!report.occupied_ips.iter().any(|ip| ip == "192.168.1.80"));
         assert!(!report.occupied_ips.iter().any(|ip| ip == "192.168.1.66"));
+    }
+
+    #[test]
+    fn an_arp_scan_does_not_count_its_targets_as_neighbors() {
+        let now = Instant::now();
+        let mut map = HashMap::new();
+        for host in 1u8..=240 {
+            map.insert(
+                AddressPortPair::new(
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                    None,
+                    IpAddr::V4(Ipv4Addr::new(192, 168, 1, host)),
+                    None,
+                    Protocol::Arp,
+                ),
+                InfoAddressPortPair {
+                    packets: 4,
+                    initial_timestamp: Timestamp::new(1_000, 0),
+                    final_timestamp: Timestamp::new(1_045, 0),
+                    final_instant: now,
+                    ..Default::default()
+                },
+            );
+        }
+
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 50)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 2,
+                initial_timestamp: Timestamp::new(1_000, 0),
+                final_timestamp: Timestamp::new(1_045, 0),
+                final_instant: now,
+                ..Default::default()
+            },
+        );
+
+        let report = sweep_report(&map, &locals());
+        assert_eq!(
+            report.occupied_ips,
+            vec![
+                "192.168.1.50".to_string(),
+                "192.168.1.171".to_string(),
+                "192.168.1.254".to_string()
+            ]
+        );
+        let unanswered: Vec<String> = (1u8..=240)
+            .filter(|host| !matches!(*host, 50 | 171 | 254))
+            .map(|host| Ipv4Addr::new(192, 168, 1, host).to_string())
+            .collect();
+        assert_eq!(report.free_ips, unanswered);
     }
 
     #[test]

@@ -21,6 +21,13 @@ All Sniffnet releases with the relative changes are documented in this file.
 - This computer is listed in Overhead neighbors along with the other devices it hears
 - The subnet size in Network analysis is labeled Size of subnet, and the occupied count is labeled Neighbors
 - The announcements card is renamed Discovery
+- The Network analysis tab is labeled Your network
+- Your traffic lists every packet to or from this computer, with the same columns as Discovery
+- The Overhead neighbor card is labeled Overheard Neighbors
+- Neighbors counts an address only after that address has sent traffic. A discovery ARP request no longer marks its target as a neighbor
+- The Analysis tab is removed. A saved page named Analysis or Announcements opens Your traffic
+- Your network no longer shows the Investigated and No reply counts
+- An ARP request with no reply lists its target under Free, and that address stays out of Neighbors
 - Analysis tab: group every flow by purpose. DNS-SD and UDP 2021 advertisements stay in an Announcements card, other traffic stays grouped until a dedicated analysis exists, and every other device on the local network appears under Local Neighbors, named from its announcement, hostname, or role such as Router or iPhone
 - IPFIX collector capabilities: receive and analyze network traffic from remote devices ([#1270](https://github.com/GyulyVGC/sniffnet/pull/1270) — fixes [#303](https://github.com/GyulyVGC/sniffnet/issues/303))
 - Show current data rates ([#1324](https://github.com/GyulyVGC/sniffnet/pull/1324) — fixes [#1077](https://github.com/GyulyVGC/sniffnet/issues/1077), [#1135](https://github.com/GyulyVGC/sniffnet/issues/1135))
