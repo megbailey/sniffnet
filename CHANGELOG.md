@@ -29,20 +29,32 @@ All Sniffnet releases with the relative changes are documented in this file.
 - Your network no longer shows the Investigated and No reply counts
 - An ARP request with no reply lists its target under Free, and that address stays out of Neighbors
 - Analysis tab: group every flow by purpose. DNS-SD and UDP 2021 advertisements stay in an Announcements card, other traffic stays grouped until a dedicated analysis exists, and every other device on the local network appears under Local Neighbors, named from its announcement, hostname, or role such as Router or iPhone
+- Updated some of the existing translations to v1.6:
+  - Sinhala ([#1362](https://github.com/GyulyVGC/sniffnet/pull/1362))
+- Fix broken Sinhala text rendering (fixes [#1363](https://github.com/GyulyVGC/sniffnet/issues/1363))
+
+## [1.6.0] - 2026-11-16
 - IPFIX collector capabilities: receive and analyze network traffic from remote devices ([#1270](https://github.com/GyulyVGC/sniffnet/pull/1270) — fixes [#303](https://github.com/GyulyVGC/sniffnet/issues/303))
 - Show current data rates ([#1324](https://github.com/GyulyVGC/sniffnet/pull/1324) — fixes [#1077](https://github.com/GyulyVGC/sniffnet/issues/1077), [#1135](https://github.com/GyulyVGC/sniffnet/issues/1135))
 - Service taxonomy: classify upper layer services into 20 different categories ([#1312](https://github.com/GyulyVGC/sniffnet/pull/1312) — fixes [#1102](https://github.com/GyulyVGC/sniffnet/issues/1102))
 - Added support for IGMP connections and messages ([#1301](https://github.com/GyulyVGC/sniffnet/pull/1301) — fixes [#1269](https://github.com/GyulyVGC/sniffnet/issues/1269))
 - Added support for VLAN-tagged connections ([#1302](https://github.com/GyulyVGC/sniffnet/pull/1302) — fixes [#1070](https://github.com/GyulyVGC/sniffnet/issues/1070))
 - Expanded view setting: slimmer header and hidden footer, allowing users to focus on what matters most ([#1310](https://github.com/GyulyVGC/sniffnet/pull/1310) — fixes [#884](https://github.com/GyulyVGC/sniffnet/issues/884))
+- Added Albanian translation 🇦🇱 ([#1340](https://github.com/GyulyVGC/sniffnet/pull/1340))
 - Enhance update checks ([#1307](https://github.com/GyulyVGC/sniffnet/pull/1307) — fixes [#1027](https://github.com/GyulyVGC/sniffnet/issues/1027))
 - Show output file path in Overview page when exporting a PCAP file ([`3f2c42c`](https://github.com/GyulyVGC/sniffnet/pull/1290/commits/3f2c42c70f06d5d29ddad80dde956281c6705511))
 - Show more details about dropped packets ([#1306](https://github.com/GyulyVGC/sniffnet/pull/1306) — fixes [#1079](https://github.com/GyulyVGC/sniffnet/issues/1079))
+- The Sniffnet Wiki has been moved from GitHub to [sniffnet.app/wiki](https://sniffnet.app/wiki/)
 - Updated some of the existing translations to v1.6:
   - Simplified Chinese ([#1322](https://github.com/GyulyVGC/sniffnet/pull/1322))
   - Traditional Chinese (Taiwan) ([#1323](https://github.com/GyulyVGC/sniffnet/pull/1323))
   - Russian ([#1328](https://github.com/GyulyVGC/sniffnet/pull/1328))
   - French ([#1330](https://github.com/GyulyVGC/sniffnet/pull/1330))
+  - Spanish ([#1339](https://github.com/GyulyVGC/sniffnet/pull/1339))
+  - Vietnamese ([#1342](https://github.com/GyulyVGC/sniffnet/pull/1342))
+  - Indonesian ([#1345](https://github.com/GyulyVGC/sniffnet/pull/1345))
+  - Uzbek ([#1352](https://github.com/GyulyVGC/sniffnet/pull/1352))
+  - Polish ([#1353](https://github.com/GyulyVGC/sniffnet/pull/1353))
 - Avoid opening captures on Linux D-Bus devices, preventing system operations from hanging ([#1320](https://github.com/GyulyVGC/sniffnet/pull/1320) — fixes [#1190](https://github.com/GyulyVGC/sniffnet/issues/1190))
 - Fix the app freezing and exhausting memory when importing a PCAP file containing a large time gap between consecutive packets ([`4605ec7`](https://github.com/GyulyVGC/sniffnet/pull/1290/commits/4605ec717bbaf8fa34268805814d5585f084201e))
 - Restrict the PCAP export file to have a valid PCAP extension, so that files of other types can't be overwritten ([`5b4801b`](https://github.com/GyulyVGC/sniffnet/pull/1290/commits/5b4801b438ff1c7968cfac423a8e8585778309a8))
@@ -159,7 +171,7 @@ All Sniffnet releases with the relative changes are documented in this file.
 - Added Vietnamese translation 🇻🇳 ([#577](https://github.com/GyulyVGC/sniffnet/pull/577))
 - Ask for quit confirmation before stopping an ongoing analysis ([#652](https://github.com/GyulyVGC/sniffnet/pull/652) — fixes [#570](https://github.com/GyulyVGC/sniffnet/issues/570))
 - Redirect `stderr` and `stdout` to file on Windows release builds ([#645](https://github.com/GyulyVGC/sniffnet/pull/645) — fixes [#578](https://github.com/GyulyVGC/sniffnet/issues/578))
-- Added Wiki page describing [command line arguments](https://github.com/GyulyVGC/sniffnet/wiki/Command-line-arguments) (fixes [#642](https://github.com/GyulyVGC/sniffnet/issues/642))
+- Added Wiki page describing [command line arguments](https://sniffnet.app/wiki/command-line-arguments/) (fixes [#642](https://github.com/GyulyVGC/sniffnet/issues/642))
 - Updated some of the existing translations to v1.3: 
   - Chinese ([#575](https://github.com/GyulyVGC/sniffnet/pull/575))
   - Korean ([#604](https://github.com/GyulyVGC/sniffnet/pull/604))

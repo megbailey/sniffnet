@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::StyleType;
 use crate::countries::flags_pictures::{
-    CN, CZ, DE, ES, FI, FR, GB, GR, HU, ICONS_SIZE_BIG, ID, IT, JP, KR, LK, NL, PL, PT, RO, RU, SE,
-    TR, TW, UA, UZ, VN,
+    AL, CN, CZ, DE, ES, FI, FR, GB, GR, HU, ICONS_SIZE_BIG, ID, IT, JP, KR, LK, NL, PL, PT, RO, RU,
+    SE, TR, TW, UA, UZ, VN,
 };
 
 /// This enum defines the available languages.
@@ -47,6 +47,8 @@ pub enum Language {
     EL,
     // /// Persian
     // FA,
+    /// Albanian
+    SQ,
     /// Swedish
     SV,
     /// Finnish
@@ -72,9 +74,8 @@ pub enum Language {
 }
 
 impl Language {
-    pub const ALL: [Language; 25] = [
+    pub const ALL: [Language; 26] = [
         Language::EN,
-        // Language::AR,
         Language::CS,
         Language::DE,
         Language::EL,
@@ -92,6 +93,7 @@ impl Language {
         Language::RO,
         Language::RU,
         Language::SI,
+        Language::SQ,
         Language::SV,
         Language::TR,
         Language::UK,
@@ -119,6 +121,7 @@ impl Language {
             Language::UK => UA,
             Language::EL => GR,
             // Language::FA => IR,
+            Language::SQ => AL,
             Language::SV => SE,
             Language::FI => FI,
             Language::JA => JP,
@@ -138,12 +141,18 @@ impl Language {
         matches!(
             self,
             Language::EN
-                // | Language::AR
                 | Language::IT
                 | Language::ZH
                 | Language::ZH_TW
                 | Language::FR
                 | Language::RU
+                | Language::SQ
+                | Language::VI
+                | Language::ES
+                | Language::ID
+                | Language::UZ
+                | Language::PL
+                | Language::SI
         )
     }
 }
@@ -167,6 +176,7 @@ impl fmt::Display for Language {
             Language::PT => "Português",
             Language::EL => "Ελληνικά",
             // Language::FA => "فارسی",
+            Language::SQ => "Shqip",
             Language::SV => "Svenska",
             Language::FI => "Suomi",
             Language::JA => "日本語",

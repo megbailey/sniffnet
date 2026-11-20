@@ -22,6 +22,7 @@ use crate::translations::types::language::Language;
 //         Language::PT => "Selecione o adaptador de rede a inspecionar",
 //         Language::EL => "Επιλέξτε τον προσαρμογέα δικτύου για επιθεώρηση",
 //         // Language::FA => "مبدل شبکه را برای بازرسی انتخاب کنید",
+//         Language::SQ => "Përzgjidhni adaptorin për inspektimin e rrjetit",
 //         Language::SV => "Välj nätverksadapter att inspektera",
 //         Language::FI => "Valitse tarkasteltava verkkosovitin",
 //         Language::JA => "使用するネットワーク アダプターを選択してください",
@@ -53,6 +54,7 @@ use crate::translations::types::language::Language;
 //         Language::PT => "Protocolo de aplicação",
 //         Language::EL => "Πρωτόκολλο εφαρμογής",
 //         // Language::FA => "پیوندنامهٔ درخواست",
+//         Language::SQ => "Protokolli i aplikacionit",
 //         Language::SV => "Applikationsprotokoll",
 //         Language::FI => "Sovellusprotokolla",
 //         Language::JA => "アプリケーション プロトコル",
@@ -83,6 +85,7 @@ use crate::translations::types::language::Language;
 //         Language::PT => "Selecione os filtros a serem aplicados no tráfego de rede",
 //         Language::EL => "Επιλέξτε τα φίλτρα που θα εφαρμοστούν στην κίνηση του δικτύου",
 //         // Language::FA => "صافی ها را جهت اعمال بر آمد و شد شبکه انتخاب کنید",
+//         Language::SQ => "Përzgjidhni filtrat që aplikohen për trafikun e internetit",
 //         Language::SV => "Välj filtren som ska appliceras på nätverkstrafiken",
 //         Language::FI => "Valitse suodattimet verkkoliikenteelle",
 //         Language::JA => "トラフィックに適用するフィルターを選択してください",
@@ -111,6 +114,7 @@ pub fn start_translation(language: Language) -> &'static str {
         Language::PT => "Começar!",
         Language::EL => "Ξεκίνα!",
         // Language::FA => "شروع!",
+        Language::SQ => "Filloj!",
         Language::SV => "Starta!",
         Language::FI => "Aloita!",
         Language::JA | Language::ZH_TW => "開始！",
@@ -118,7 +122,7 @@ pub fn start_translation(language: Language) -> &'static str {
         Language::VI => "Bắt đầu!",
         Language::ID => "Mulai!",
         Language::HU => "Kezdés!",
-        Language::SI => "ආරම්භ කරන්න!",
+        Language::SI => "අරඹන්න!",
         // Language::AR => "ابدأ!",
     }
 }
@@ -126,7 +130,7 @@ pub fn start_translation(language: Language) -> &'static str {
 pub fn address_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "Address",
-        Language::CS => "Adresa",
+        Language::CS | Language::SQ => "Adresa",
         Language::IT => "Indirizzo",
         Language::FR | Language::DE => "Adresse",
         Language::ES => "Dirección",
@@ -170,6 +174,7 @@ pub fn address_translation(language: Language) -> &'static str {
 //         Language::PT => "Endereços",
 //         Language::EL => "Διευθύνσεις",
 //         // Language::FA => "نشانی ها",
+//         Language::SQ => "Adresat",
 //         Language::SV => "Adresser",
 //         Language::FI => "Osoitteet",
 //         Language::JA => "アドレス",
@@ -200,6 +205,7 @@ pub fn address_translation(language: Language) -> &'static str {
 //         Language::PT => "Versão de IP",
 //         Language::EL => "Έκδοση IP",
 //         // Language::FA => "نسخهٔ IP",
+//         Language::SQ => "IP-versioni",
 //         Language::SV => "IP-version",
 //         Language::FI => "IP-versio",
 //         Language::JA => "IP バージョン",
@@ -230,6 +236,7 @@ pub fn address_translation(language: Language) -> &'static str {
 //         Language::RU => "Транспортный протокол",
 //         Language::EL => "Πρωτόκολλο μεταφοράς",
 //         // Language::FA => "پیوندنامهٔ ترابرد",
+//         Language::SQ => "Protokolli i transportit",
 //         Language::SV => "Transportprotokoll",
 //         Language::FI => "Kuljetusprotokolla",
 //         Language::JA => "トランスポート プロトコル",
@@ -256,12 +263,13 @@ pub fn protocol_translation(language: Language) -> &'static str {
         Language::TR => "Protokolü",
         Language::EL => "Πρωτόκολλο",
         // Language::FA => "پیوندنامهٔ",
+        Language::SQ => "Protokolli",
         Language::FI => "Protokolla",
         Language::JA => "プロトコル",
         Language::UZ => "Protokoli",
         Language::VI => "Phương thức",
         Language::ID | Language::CS => "Protokol",
-        Language::SI => "ප්‍රොටෝකෝලය",
+        Language::SI => "නියමාවලිය",
         // Language::AR => "بروتوكول",
     }
 }
@@ -285,6 +293,7 @@ pub fn traffic_rate_translation<'a>(language: Language) -> Text<'a, StyleType> {
         Language::PT => "Taxa de tráfego",
         Language::EL => "Ρυθμός κίνησης",
         // Language::FA => "نرخ آمد و شد",
+        Language::SQ => "Intensiteti i trafikut",
         Language::SV => "Datafrekvens",
         Language::FI => "Liikennemäärä",
         Language::JA => "トラフィック レート",
@@ -293,7 +302,7 @@ pub fn traffic_rate_translation<'a>(language: Language) -> Text<'a, StyleType> {
         Language::ID => "Tingkat lalulintas",
         Language::NL => "Verkeerssnelheid",
         Language::HU => "Adatráta",
-        Language::SI => "ට්‍රැෆික් ප්‍රමාණය",
+        Language::SI => "ගමනාගමන අනුපාතය",
         // Language::AR => "معدل حركة البيانات",
     })
 }
@@ -318,6 +327,7 @@ pub fn traffic_rate_translation<'a>(language: Language) -> Text<'a, StyleType> {
 //         Language::EL => "Σχετικές συνδέσεις:",
 //         Language::FA => "پیوند های خویشاوند:",
 //         Language::SE => "Relevanta anslutningar:",
+//         Language::SQ => "Lidhje të ngushta:",
 //         Language::UZ => "Tegishli ulanishlar:",
 //         Language::ID => "Koneksi yang berkaitan",
 //         Language::NL => "Relevante verbindingen:",
@@ -344,6 +354,7 @@ pub fn settings_translation(language: Language) -> &'static str {
         Language::PT => "Configurações",
         Language::EL => "Ρυθμίσεις",
         // Language::FA => "پیکربندی",
+        Language::SQ => "Parametrat",
         Language::SV => "Inställningar",
         Language::FI => "Asetukset",
         Language::JA | Language::ZH_TW => "設定",
@@ -370,6 +381,7 @@ pub fn yes_translation<'a>(language: Language) -> Text<'a, StyleType> {
         Language::ZH | Language::ZH_TW => "是",
         Language::RO => "Da",
         Language::KO => "네",
+        Language::SQ => "Po",
         Language::TR => "Evet",
         Language::RU => "Да",
         Language::PT => "Sim",
@@ -393,7 +405,7 @@ pub fn ask_quit_translation<'a>(language: Language) -> Text<'a, StyleType> {
         Language::IT => "Sei sicuro di voler interrompere questa analisi?",
         Language::FR => "Êtes-vous sûr de vouloir quitter l'application ?",
         Language::ES => "¿Estás seguro de que quieres dejar este análisis?",
-        Language::PL => "Jesteś pewien, że chcesz zakończyć analizę?",
+        Language::PL => "Czy na pewno chcesz zakończyć analizę?",
         Language::DE => "Bist du sicher, dass du diese Analyse beenden willst?",
         Language::UK => "Чи справді хочете закінчити аналіз?",
         Language::ZH => "您确定退出当前监控吗?",
@@ -405,6 +417,7 @@ pub fn ask_quit_translation<'a>(language: Language) -> Text<'a, StyleType> {
         Language::PT => "Tem a certeza que deseja sair desta análise?",
         Language::EL => "Είστε βέβαιοι ότι θέλετε να τερματίσετε την ανάλυση;",
         // Language::FA => "آیا مطمئن هستید می خواهید از این تحلیل خارج شوید؟",
+        Language::SQ => "Jeni të sigurt për ndërprerjen e analizës?",
         Language::SV => "Är du säker på att du vill avsluta analysen?",
         Language::FI => "Haluatko varmasti lopettaa analyysin?",
         Language::JA => "分析を終了しますか？",
@@ -425,7 +438,7 @@ pub fn quit_analysis_translation(language: Language) -> &'static str {
         Language::IT => "Interrompi analisi",
         Language::FR => "Quitter l'analyse",
         Language::ES => "Quitar el análisis",
-        Language::PL => "Zakończ analize",
+        Language::PL => "Zakończ analizę",
         Language::DE => "Analyse beenden",
         Language::UK => "Закінчити аналіз",
         Language::ZH => "退出监控",
@@ -437,6 +450,7 @@ pub fn quit_analysis_translation(language: Language) -> &'static str {
         Language::PT => "Sair da análise",
         Language::EL => "Έξοδος ανάλυσης",
         // Language::FA => "خروج از تحلیل",
+        Language::SQ => "Ndërprisni analizën",
         Language::SV => "Avsluta analys",
         Language::FI => "Lopeta analyysi",
         Language::JA => "分析の終了",
@@ -469,6 +483,7 @@ pub fn ask_clear_all_translation<'a>(language: Language) -> Text<'a, StyleType> 
         Language::PT => "Tem a certeza que deseja eliminar as notificações?",
         Language::EL => "Είστε βέβαιοι ότι θέλετε να εκκαθαρίσετε τις ειδοποιήσεις;",
         // Language::FA => "آیا مطمئن هستید می خواهید اعلان ها را پاک کنید؟",
+        Language::SQ => "Jeni të sigurt për fshehjen e njoftimeve?",
         Language::SV => "Är du säker på att du vill radera notifikationerna?",
         Language::FI => "Haluatko varmasti tyhjentää ilmoitukset?",
         Language::JA => "すべての通知を削除します。よろしいですか？",
@@ -477,7 +492,7 @@ pub fn ask_clear_all_translation<'a>(language: Language) -> Text<'a, StyleType> 
         Language::ID => "Apa kamu yakin untuk membersihkan notifikasi?",
         Language::NL => "Weet je zeker dat je alle meldingen wilt wissen?",
         Language::HU => "Biztosan törölni akarod az értesítéseket?",
-        Language::SI => "ඔබට සියලු දැනුම්දීම් මකා දැමීමට අවශ්‍යද?",
+        Language::SI => "ඔබට සියලු දැනුම්දීම් මැකීමට අවශ්‍යද?",
         // Language::AR => "هل أنت متأكد من أنك تريد مسح الإشعارات؟",
     })
 }
@@ -500,6 +515,7 @@ pub fn clear_all_translation(language: Language) -> &'static str {
         Language::PT => "Limpar tudo",
         Language::EL => "Εκκαθάριση όλων",
         // Language::FA => "پاک کردن همه",
+        Language::SQ => "Pastroj të gjitha",
         Language::SV => "Radera alla",
         Language::FI => "Tyhjennä kaikki",
         Language::JA => "すべて削除",
@@ -508,7 +524,7 @@ pub fn clear_all_translation(language: Language) -> &'static str {
         Language::ID => "Bersihkan semua",
         Language::NL => "Alles wissen",
         Language::HU => "Összes törlése",
-        Language::SI => "සියල්ල මකා දමන්න",
+        Language::SI => "සියල්ල මකන්න",
         // Language::AR => "مسح الكل",
     }
 }
@@ -531,6 +547,7 @@ pub fn hide_translation(language: Language) -> &'static str {
         Language::PT => "Esconder",
         Language::EL => "Κλείσιμο",
         // Language::FA => "پنهان کردن",
+        Language::SQ => "Fsheh",
         Language::SV => "Göm",
         Language::FI => "Piilota",
         Language::JA => "隠す",
@@ -563,6 +580,7 @@ pub fn network_adapter_translation(language: Language) -> &'static str {
         Language::PT => "Adaptador de rede",
         Language::EL => "Προσαρμογέας δικτύου",
         // Language::FA => "مبدل شبکه",
+        Language::SQ => "Adaptori i rrjetit",
         Language::SV => "Nätverksadapter",
         Language::FI => "Verkkosovitin",
         Language::JA => "ネットワーク アダプター",
@@ -570,7 +588,7 @@ pub fn network_adapter_translation(language: Language) -> &'static str {
         Language::ID => "Adapter jaringan",
         Language::NL => "Netwerkadapter",
         Language::HU => "Hálózati adapter",
-        Language::SI => "නෙට්වර්ක් ඇඩැප්ටරය",
+        Language::SI => "ජාල අනුහුරුව",
         // Language::AR => "محول الشبكة",
     }
 }
@@ -600,7 +618,7 @@ pub fn no_addresses_translation(language: Language) -> &'static str {
         }
         Language::PL => {
             "Nie można zaobserwować żadnego ruchu, ponieważ wybrany adapter nie ma aktywnych adresów...\n\n\
-                                 Jeśli jesteś pewien, że jesteś podłączony do internetu, spróbuj wybrać inny adapter."
+                                 Jeśli połączenie z internetem jest aktywne, spróbuj wybrać inny adapter."
         }
         Language::DE => {
             "Es kann kein Netzwerkverkehr beobachtet werden, weil der Adapter keine aktiven Adressen hat...\n\n\
@@ -645,6 +663,10 @@ pub fn no_addresses_translation(language: Language) -> &'static str {
         // Language::FA => format!("هیچ آمد و شدی قابل مشاهده نیست چون مبدلی که انتخاب کرده اید هیچ نشانی فعالی ندارد...\n\n\
         //                         مبدل شبکه: {adapter}\n\n\
         //                         اگر مطمئن هستید به اینترنت وصل هستید، سعی کنید مبدل متفاوتی را انتخاب کنید."),
+        Language::SQ => {
+            "Nuk po vërehet ndonjë trafik, sepse adaptori i përzgjedhur nuk ka adresa aktive...\n\n\
+                                Nëse jeni të sigurt për lidhjen me internetin, provoni të zgjidhni një adaptor tjetër."
+        }
         Language::SV => {
             "Det går inte att observa någon trafik eftersom den valda adaptern inte har några aktiva adresser ...\n\n\
                                  Om du är säker att du är ansluten till internet, testa att välja en annan adapter."
@@ -682,8 +704,8 @@ pub fn no_addresses_translation(language: Language) -> &'static str {
         //                         إذا كنت متأكدًا من اتصالك بالإنترنت، فجرّب اختيار محول آخر."
         // }
         Language::SI => {
-            "ඔබ තෝරාගත් ඇඩැප්ටරයට සක්‍රිය ලිපින නොමැති නිසා කිසිවක් නිරීක්ෂණය කළ නොහැක...\n\n\
-                                 ඔබ අන්තර්ජාලයට සම්බන්ධ වී ඇති බව විශ්වාස නම්, වෙනත් ඇඩැප්ටරයක් තෝරා බලන්න."
+            "ඔබ තේරූ අනුහුරුවෙහි සක්‍රිය ලිපින නැති නිසා කිසිවක් නිරීක්‍ෂණයට නොහැකිය...\n\n\
+                                 ඔබ අන්තර්ජාලයට සම්බන්‍ධ බව විශ්වාස නම්, වෙනත් අනුහුරුවක් තෝරා බලන්න."
         }
     }
 }
@@ -712,8 +734,8 @@ pub fn waiting_translation(language: Language) -> &'static str {
                                  ¿Está seguro de que está conectado a Internet y ha seleccionado la tarjeta de red correcta?"
         }
         Language::PL => {
-            "Nie zaobserowano żadnego ruchu sieciowego. Oczekiwanie na pakiety...\n\n\
-                                 Czy na pewno jesteś podłączony do internetu i wybrałeś właściwy adapter?"
+            "Nie zaobserwowano jeszcze żadnego ruchu. Oczekiwanie na pakiety sieciowe...\n\n\
+                                 Czy na pewno masz połączenie z internetem i wybrany jest właściwy adapter?"
         }
         Language::DE => {
             "Noch kein Netzwerkverkehr beobachtet. Warten auf Pakete...\n\n\
@@ -758,6 +780,10 @@ pub fn waiting_translation(language: Language) -> &'static str {
         // Language::FA => format!("هنوز هیچ آمد و شدی مشاهده نشده است. در حال انتظار برای بسته های شبکه...\n\n
         //                         مبدل شبکه: {adapter}\n\n
         //                         آیا مطمئن هستید به اینترنت وصل هستید و مبدل درست را انتخاب کرده اید؟"),
+        Language::SQ => {
+            "Nuk po vërehet ndonjë trafik. Në pritje të paketave të rrjetit...\n\n\
+                                 Jeni të sigurt për lidhjen me internetin dhe për zgjedhjen e adaptorit të duhur?"
+        }
         Language::SV => {
             "Ingen trafik har observerats ännu. Väntar på paket ...\n\n\
                                  Är du säker på att du är ansluten till internet och att du har valt rätt adapter?"
@@ -795,8 +821,8 @@ pub fn waiting_translation(language: Language) -> &'static str {
         //                         هل أنت متأكد من اتصالك بالإنترنت واختيارك محول الشبكة الصحيح؟"
         // }
         Language::SI => {
-            "තවම කිසිදු ට්‍රැෆික් එකක් නිරීක්ෂණය වී නැත. නෙට්වර්ක් පැකට් ලැබෙනතෙක් රැඳෙන්න...\n\n\
-                                 ඔබ අන්තර්ජාලයට සම්බන්ධ වී නිවැරදි ඇඩැප්ටරය තෝරා ඇති බව ඔබට විශ්වාසද?"
+            "තවමත් කිසිදු ගමනාගමනයක් නිරීක්‍ෂණය නොවිණි. ජාල පැකට් සඳහා රැඳෙමින්...\n\n\
+                                 ඔබ අන්තර්ජාලයට සම්බන්‍ධ සහ නිවැරදි අනුහුරුව තෝරාගත් බව විශ්වාසද?"
         }
     }
 }
@@ -887,6 +913,11 @@ pub fn waiting_translation(language: Language) -> &'static str {
 //         // Language::FA => format!("مجموع بسته های رهگیری شده: {observed}\n\n\
 //         //                         بسته های صاف شده: 0\n\n\
 //         //                         شماری از بسته ها رهگیری شده اند، ولی هنوز هیچ کدام بر اساس صافی تعیین شده شما انتخاب نشده اند..."),
+//         Language::SQ => format!(
+//             "Totali i paketave të interceptuara: {observed}\n\n\
+//                                  Paketa të filtruara: 0\n\n\
+//                                  Janë interceptuar disa paketa, por ende nuk ka asnjë të përzgjedhur sipas filtrave të përcaktuar..."
+//         ),
 //         Language::SV => format!(
 //             "Antal fångade paket: {observed}\n\n\
 //                                  Filtrerade paket: 0\n\n\
@@ -954,6 +985,7 @@ pub fn waiting_translation(language: Language) -> &'static str {
 //         Language::PT => "Pacotes filtrados",
 //         Language::EL => "Φιλτραρισμένα πακέτα",
 //         // Language::FA => "بسته های صاف شده",
+//         Language::SQ => "Paketa të filtruara",
 //         Language::SV => "Filtrerade paket",
 //         Language::FI => "Suodatettuja paketteja",
 //         Language::JA => "フィルタリングされたパケット",
@@ -984,6 +1016,7 @@ pub fn waiting_translation(language: Language) -> &'static str {
 //         Language::RU => "Отфильтровано байт",
 //         Language::EL => "Φιλτραρισμένα bytes",
 //         // Language::FA => "بایت های صاف شده",
+//         Language::SQ => "Bajtë të filtruar",
 //         Language::SV => "Filtrerade bytes",
 //         Language::FI => "Suodatettuja tavuja",
 //         Language::JA => "フィルタリングされたバイト",
@@ -1031,6 +1064,7 @@ pub fn waiting_translation(language: Language) -> &'static str {
 //             format!("({percentage} από τα συνολικά)")
 //         }
 //         // Language::FA => format!("({percentage} از مجموع)"),
+//         Language::SQ => format!("({percentage} e totalit)"),
 //         Language::SV => format!("({percentage} av totalen)"),
 //         Language::FI => format!("({percentage} kokonaismäärästä)"),
 //         Language::JA => format!("(トータル: {percentage} )"),
@@ -1063,6 +1097,7 @@ pub fn waiting_translation(language: Language) -> &'static str {
 //         Language::EL => "Φιλτραρισμένα πακέτα ανά πρωτόκολλο εφαρμογής:",
 //         Language::FA => "بسته های صاف شده برای هر پیوندنامهٔ درخواست:",
 //         Language::SE => "Filtrerade paket per applikationsprotokoll:",
+//         Language::SQ => "Paketa të filtruara sipas protokollit aplikativ:",
 //         Language::UZ => "Har bir dastur protokoli uchun filtrlangan paketlar:",
 //         Language::ID => "Paket data tersaring dari setiap protokol aplikasi:",
 //         Language::NL => "Gefilterde pakketten per applicatieprotocol:",
@@ -1108,6 +1143,8 @@ pub fn waiting_translation(language: Language) -> &'static str {
 //                         برای افزودن یک پیوند به پسندیده های خود، روی نشان ستاره کنار پیوند کلیک کنید.",
 //         Language::SE => "Inget att visa för tillfälet.\n\
 //                          För att lägga till anslutningar till dina favoriter, klicka på stjärnsymbolen nära anslutningen.",
+//         Language::SQ => "Për momentin nuk ka gjë.\n\
+//                          Për ta bërë një lidhje të preferuar, klikoni simbolin e yllit afër saj.",
 //         Language::UZ => "Ayni paytda ko'rsatiladigan hech narsa yo'q.\n\
 //         Ulanishni sevimlilar ro'yhatiga qo'shish uchun ulanish yaqinidagi yulduzcha belgisini bosing."
 //         Language::ID => "Tidak ada yang ditampilkan untuk saatini.\n\
@@ -1143,6 +1180,7 @@ pub fn error_translation(language: Language) -> &'static str {
         //     "خطایی رخ داد! \n\n\
         //                         {error}"
         // ),
+        Language::SQ => "Ka një problem!",
         Language::SV => "Ett fel inträffade!",
         Language::FI => "Tapahtui virhe!",
         Language::JA => "エラーが発生しました!",
@@ -1151,7 +1189,7 @@ pub fn error_translation(language: Language) -> &'static str {
         Language::ID => "Terjadi kesalahan!",
         Language::NL => "Er is een fout opgetreden!",
         Language::HU => "Hiba történt!",
-        Language::SI => "දෝෂයක් ඇති විය!",
+        Language::SI => "දෝෂයක් සිදු විය!",
         // Language::AR => "حدث خطأ!",
     }
 }
@@ -1174,6 +1212,7 @@ pub fn error_translation(language: Language) -> &'static str {
 //         Language::RU => "оба",
 //         Language::EL => "αμφότερα",
 //         // Language::FA => "هر دو",
+//         Language::SQ => "të dyja",
 //         Language::SV => "båda",
 //         Language::FI => "molemmat",
 //         Language::JA => "両方",
@@ -1198,6 +1237,7 @@ pub fn error_translation(language: Language) -> &'static str {
 //         Language::ZH_TW => "所有通訊協定",
 //         Language::FA => "همهٔ پیوندنامه ها",
 //         Language::SE => "Alla protokoll",
+//         Language::SQ => "Gjithë protokollet",
 //         Language::UZ => "Barcha protokollar",
 //         Language::UK => "Усі протоколи",
 //         Language::ID => "Semua protokol",
@@ -1225,6 +1265,7 @@ pub fn error_translation(language: Language) -> &'static str {
 //         Language::RU => "Всё",
 //         Language::EL => "Όλα",
 //         // Language::FA => "همه",
+//         Language::SQ => "Të gjitha",
 //         Language::SV => "Alla",
 //         Language::FI => "Kaikki",
 //         Language::JA => "すべて",
@@ -1255,6 +1296,7 @@ pub fn packets_translation(language: Language) -> &'static str {
         Language::PT => "Pacotes",
         Language::EL => "Πακέτα",
         // Language::FA => "بسته ها",
+        Language::SQ => "Paketa",
         Language::FI => "Paketit",
         Language::JA => "パケット",
         Language::UZ => "Paketlar",
@@ -1285,6 +1327,7 @@ pub fn packets_translation(language: Language) -> &'static str {
 //         Language::PT => "pacotes por segundo",
 //         Language::EL => "πακέτα ανά δευτερόλεπτο",
 //         // Language::FA => "بسته در ثانیه",
+//         Language::SQ => "paketa në sekondë",
 //         Language::SV => "paket per sekund",
 //         Language::FI => "pakettia sekunnissa",
 //         Language::JA => "1 秒あたりのパケット数",
@@ -1320,10 +1363,11 @@ pub fn bytes_translation(language: Language) -> &'static str {
         Language::TR | Language::UZ => "Bayt",
         Language::RU => "Байтов",
         // Language::FA => "بایت ها",
+        Language::SQ => "Bajtë",
         Language::FI => "Tavua",
         Language::JA => "バイト",
         Language::HU => "Bájtok",
-        Language::SI => "බයිට්",
+        Language::SI => "බයිට",
         // Language::AR => "بايتات",
     }
 }
@@ -1346,6 +1390,7 @@ pub fn bytes_translation(language: Language) -> &'static str {
 //         Language::RU => "байтов в секунду",
 //         Language::EL => "bytes ανά δευτερόλεπτο",
 //         // Language::FA => "بایت در ثانیه",
+//         Language::SQ => "bajtë në sekondë",
 //         Language::SV => "bytes per sekund",
 //         Language::FI => "tavua sekunnissa",
 //         Language::JA => "1 秒あたりのバイト量",
@@ -1377,6 +1422,7 @@ pub fn bytes_translation(language: Language) -> &'static str {
 //         Language::PT => "mais recente",
 //         Language::EL => "πιο πρόσφατα",
 //         // Language::FA => "آخرین",
+//         Language::SQ => "të fundit",
 //         Language::SV => "senaste",
 //         Language::FI => "viimeisin",
 //         Language::JA => "新しい順",
@@ -1407,6 +1453,7 @@ pub fn bytes_translation(language: Language) -> &'static str {
 //         Language::PT => "mais pacotes",
 //         Language::EL => "περισσότερα πακέτα",
 //         // Language::FA => "بیشترین بسته ها",
+//         Language::SQ => "më shumë paketa",
 //         Language::SV => "flest paket",
 //         Language::FI => "eniten paketteja",
 //         Language::JA => "パケット数の多い順",
@@ -1437,6 +1484,7 @@ pub fn bytes_translation(language: Language) -> &'static str {
 //         Language::PT => "mais bytes",
 //         Language::EL => "περισσότερα bytes",
 //         // Language::FA => "بیشترین بایت ها",
+//         Language::SQ => "më shumë bajtë",
 //         Language::SV => "flest bytes",
 //         Language::FI => "eniten tavuja",
 //         Language::JA => "バイト量の多い順",
@@ -1466,6 +1514,7 @@ pub fn bytes_translation(language: Language) -> &'static str {
 //         Language::EL => "αγαπημένα",
 //         Language::FA => "پسندیده ها",
 //         Language::SE => "favoriter",
+//         Language::SQ => "preferuar",
 //         Language::UZ => "sevimlilar",
 //         Language::ID => "favorit",
 //         Language::NL => "favorieten",
@@ -1493,6 +1542,7 @@ pub fn notifications_title_translation<'a>(language: Language) -> Text<'a, Style
         Language::PT => "Personalize as suas notificações",
         Language::EL => "Εξατομίκευση ειδοποιήσεων",
         // Language::FA => "اعلان های خود را سفارشی کنید",
+        Language::SQ => "Personalizoni njoftimet tuaja",
         Language::SV => "Anpassa dina notifikationer",
         Language::FI => "Muokkaa ilmoituksiasi",
         Language::JA => "通知のカスタマイズ",
@@ -1501,7 +1551,7 @@ pub fn notifications_title_translation<'a>(language: Language) -> Text<'a, Style
         Language::ID => "Sesuaikan notifikasi Anda",
         Language::NL => "Pas je meldingen aan",
         Language::HU => "Értesítések személyre szabása",
-        Language::SI => "ඔබේ දැනුම්දීම් අභිරුචිකරණය කරන්න",
+        Language::SI => "දැනුම්දීම් අභිරුචිකරණය",
         // Language::AR => "تخصيص الإشعارات",
     })
 }
@@ -1525,6 +1575,7 @@ pub fn appearance_title_translation<'a>(language: Language) -> Text<'a, StyleTyp
         Language::PT => "Escolha o seu tema favorito",
         Language::EL => "Επιλέξτε το αγαπημένο σας θέμα",
         // Language::FA => "زمینه دلخواه خود را انتخاب کنید",
+        Language::SQ => "Zgjidhni motivin e preferuar",
         Language::SV => "Välj ditt favorittema",
         Language::FI => "Valitse suosikkiteemasi",
         Language::JA => "テーマを選択してください",
@@ -1533,7 +1584,7 @@ pub fn appearance_title_translation<'a>(language: Language) -> Text<'a, StyleTyp
         Language::ID => "Pilih tema favorit Kamu",
         Language::NL => "Kies je favoriete thema",
         Language::HU => "Válaszd ki a kedvenc témád",
-        Language::SI => "ඔබේ කැමති තේමාව තෝරන්න",
+        Language::SI => "ප්‍රියතම තේමාව",
         // Language::AR => "اختر السمة المفضلة لديك",
     })
 }
@@ -1557,6 +1608,7 @@ pub fn active_filters_translation(language: Language) -> &'static str {
         Language::PT => "Filtros ativos",
         Language::EL => "Ενεργά φίλτρα",
         // Language::FA => "صافی های فعال",
+        Language::SQ => "Filtrat aktivë",
         Language::SV => "Aktiva filter",
         Language::FI => "Aktiiviset suodattimet",
         Language::JA => "適用されているフィルター",
@@ -1589,6 +1641,7 @@ pub fn active_filters_translation(language: Language) -> &'static str {
 //         Language::PT => "nenhum",
 //         Language::EL => "κανένα",
 //         // Language::FA => "هیچ کدام",
+//         Language::SQ => "asnjë",
 //         Language::SV => "inga",
 //         Language::FI => "ei mitään",
 //         Language::JA => "なし",
@@ -1621,6 +1674,7 @@ pub fn active_filters_translation(language: Language) -> &'static str {
 //         Language::PT => "Tema escuro original de Sniffnet",
 //         Language::EL => "Το αυθεντικό σκούρο θέμα του Sniffnet",
 //         // Language::FA => "زمینه تاریک اصلی Sniffnet",
+//         Language::SQ => "Motivi origjinal i errët i Sniffnet",
 //         Language::SV => "Sniffnets ursprungliga mörka tema",
 //         Language::FI => "Sniffnetin alkuperäinen tumma teema",
 //         Language::JA => "Sniffnet のオリジナル テーマ",
@@ -1651,6 +1705,7 @@ pub fn active_filters_translation(language: Language) -> &'static str {
 //         Language::RU => "Оригинальная светая тема Sniffnet'а",
 //         Language::EL => "Το αυθεντικό ανοιχτόχρωμο θέμα του Sniffnet",
 //         // Language::FA => "زمینه روشن اصلی Sniffnet",
+//         Language::SQ => "Motivi origjinal i çelët i Sniffnet",
 //         Language::SV => "Sniffnets ursprungliga ljusa tema",
 //         Language::FI => "Sniffnetin alkuperäinen vaalea teema",
 //         Language::JA => "Sniffnet のオリジナル ライト テーマ",
@@ -1682,6 +1737,7 @@ pub fn active_filters_translation(language: Language) -> &'static str {
 //         Language::PT => "Para mergulhar no tráfego de rede",
 //         Language::EL => "Βουτιά μέσα στην κίνηση του δικτύου",
 //         // Language::FA => "شیرجه رفتن در آمد و شد شبکه",
+//         Language::SQ => "Për t'u zhytur në trafikun e rrjetit",
 //         Language::SV => "För att dyka ned i nätverkstrafiken",
 //         Language::FI => "Sukeltaaksesi verkkoliikenteeseen",
 //         Language::JA => "ネットワーク トラフィックにダイブ",
@@ -1713,6 +1769,7 @@ pub fn active_filters_translation(language: Language) -> &'static str {
 //         Language::PT => "Tema encantador feito para sonhadores",
 //         Language::EL => "Φτιαγμένο για ονειροπόλους",
 //         // Language::FA => "زمینه دلپذیر ساخته شده برای رویا پردازان",
+//         Language::SQ => "Motiv fantastik për ëndërrimtarët",
 //         Language::SV => "Ljuvligt tema gjort för drömmare",
 //         Language::FI => "Ihana teema unelmoijille",
 //         Language::JA => "ドリーマーのためのテーマ",
@@ -1743,6 +1800,7 @@ pub fn incoming_translation(language: Language) -> &'static str {
         Language::PT => "Entrando",
         Language::EL => "Εισερχόμενα",
         // Language::FA => "ورودی",
+        Language::SQ => "Hyrje",
         Language::SV => "Inkommande",
         Language::FI => "Saapuva",
         Language::JA => "受信",
@@ -1774,6 +1832,7 @@ pub fn outgoing_translation(language: Language) -> &'static str {
         Language::PT => "Saindo",
         Language::EL => "Εξερχόμενα",
         // Language::FA => "خروجی",
+        Language::SQ => "Dalje",
         Language::SV => "Utgående",
         Language::FI => "Lähtevä",
         Language::JA => "送信",
@@ -1804,6 +1863,7 @@ pub fn notifications_translation(language: Language) -> &'static str {
         Language::PT => "Notificações",
         Language::EL => "Ειδοποιήσεις",
         // Language::FA => "اعلان ها",
+        Language::SQ => "Njoftimet",
         Language::SV => "Notifikationer",
         Language::FI => "Ilmoitukset",
         Language::UZ => "Bildirishnomalar",
@@ -1832,6 +1892,7 @@ pub fn style_translation(language: Language) -> &'static str {
         // Language::FA => "شیوه",
         Language::FI => "Tyyli",
         Language::JA => "スタイル",
+        Language::SQ => "Stili",
         Language::UZ => "Uslub",
         Language::VI => "Chủ đề",
         Language::ID => "Gaya",
@@ -1861,6 +1922,7 @@ pub fn language_translation(language: Language) -> &'static str {
         Language::PT => "Língua",
         Language::EL => "Γλώσσα",
         // Language::FA => "زبان",
+        Language::SQ => "Gjuha",
         Language::SV => "Språk",
         Language::FI => "Kieli",
         Language::JA => "表示言語",
@@ -1893,6 +1955,7 @@ pub fn overview_translation(language: Language) -> &'static str {
         Language::PT => "Visão geral",
         Language::EL => "Επισκόπηση",
         // Language::FA => "نمای کلی",
+        Language::SQ => "Përmbledhje",
         Language::SV => "Översikt",
         Language::FI => "Yleiskatsaus",
         Language::JA => "概要",
@@ -1925,6 +1988,7 @@ pub fn overview_translation(language: Language) -> &'static str {
 //         Language::PT => "Notifique-me quando um limite de pacotes for excedido",
 //         Language::EL => "Ειδοποίησέ με όταν το όριο τον πακέτων ξεπεραστεί",
 //         // Language::FA => "به من اطلاع بده وقتی آستانه یک بسته فراتر رفت",
+//         Language::SQ => "Njoftoj kur kapërcehet pragu i paketave",
 //         Language::SV => "Notifiera mig när en paketgräns har överstigits",
 //         Language::FI => "Ilmoita minulle, kun pakettiraja on ylittynyt",
 //         Language::JA => "パケット数の閾値を超過した場合に通知する",
@@ -1956,6 +2020,7 @@ pub fn overview_translation(language: Language) -> &'static str {
 //         Language::PT => "Notifique-me quando um limite de bytes for excedido",
 //         Language::EL => "Ειδοποίησέ με όταν το όριο των bytes ξεπεραστεί",
 //         // Language::FA => "به من اطلاع بده وقتی آستانه یک بایت فراتر رفت",
+//         Language::SQ => "Njoftoj kur kapërcehet pragu i bajtëve",
 //         Language::SV => "Notifiera mig när en gräns för bytes har överstigits",
 //         Language::FI => "Ilmoita minulle, kun tavuraja on ylittynyt",
 //         Language::JA => "バイト量の閾値を超過した場合に通知する",
@@ -1985,6 +2050,7 @@ pub fn per_second_translation(language: Language) -> &'static str {
         Language::RU => "в секунду",
         Language::EL => "ανά δευτερόλεπτο",
         // Language::FA => "در ثانیه",
+        Language::SQ => "në sekondë",
         Language::SV => "per sekund",
         Language::FI => "sekunnissa",
         Language::UZ => "soniyasiga",
@@ -2016,6 +2082,7 @@ pub fn per_second_translation(language: Language) -> &'static str {
 //         Language::PT => "também pode especificar 'K', 'M' e 'G'",
 //         Language::EL => "μπορείς επίσης να καθορίσεις τα 'K', 'M' και 'G'",
 //         // Language::FA => "؛ شما همچنین می توانید 'M'، 'K' و 'G' را تعیین کنید",
+//         Language::SQ => "mund të specifikoni 'K', 'M' dhe 'G'",
 //         Language::SV => "du kan också ange 'K', 'M' och 'G'",
 //         Language::FI => "voit myös määrittää 'K', 'M' tai 'G'",
 //         Language::JA => "'K', 'M', 'G' が選択可能です",
@@ -2049,6 +2116,7 @@ pub fn per_second_translation(language: Language) -> &'static str {
 //         Language::PT => "Notificar-me quando novos dados forem trocados dos meus favoritos",
 //         Language::EL => "Ειδοποίησέ με όταν νέα δεδομένα έχουν ανταλλαγεί από τα αγαπημένα μου",
 //         // Language::FA => "به من اطلاع بده وقتی داده جدید از پسندیده های من مبادله شد",
+//         Language::SQ => "Njoftoj kur të preferuarit shkëmbejnë të dhëna të reja",
 //         Language::SV => "Notifiera mig när ny data utbyts av mina favoriter",
 //         Language::FI => "Ilmoita minulle, kun suosikkini vaihtavat uusia tietoja",
 //         Language::JA => "お気に入りに指定したホストに関してデータ送受信があった場合に通知する",
@@ -2080,6 +2148,7 @@ pub fn threshold_translation(language: Language) -> &'static str {
         Language::PT => "Limite",
         Language::EL => "όριο",
         // Language::FA => "آستانه",
+        Language::SQ => "Pragu",
         Language::SV => "Gräns",
         Language::FI => "Raja",
         Language::JA => "閾値",
@@ -2088,7 +2157,7 @@ pub fn threshold_translation(language: Language) -> &'static str {
         Language::ID => "Ambang batas",
         Language::NL => "Grens",
         Language::HU => "Küszöb",
-        Language::SI => "සීමාව",
+        Language::SI => "එළිපත් සීමාව",
         // Language::AR => "الحد",
     }
 }
@@ -2109,13 +2178,14 @@ pub fn volume_translation(language: Language) -> &'static str {
         Language::RU => "Объём",
         Language::EL => "Ένταση",
         // Language::FA => "حجم",
+        Language::SQ => "Volumi",
         Language::SV => "Volym",
         Language::FI => "Äänenvoimakkuus",
         Language::UZ => "Ovoz balandligi",
         Language::VI => "Âm lượng",
         Language::ID => "Bunyi",
         Language::HU => "Hangerő",
-        Language::SI => "ශබ්ද මට්ටම",
+        Language::SI => "පරිමාව",
         // Language::AR => "مستوى الصوت",
     }
 }
@@ -2138,6 +2208,7 @@ pub fn sound_translation(language: Language) -> &'static str {
         Language::PT => "Som",
         Language::EL => "Ήχος",
         // Language::FA => "صدا",
+        Language::SQ => "Zëri",
         Language::SV => "Ljud",
         Language::FI => "Ääni",
         Language::UZ => "Ovoz",
@@ -2157,7 +2228,7 @@ pub fn bytes_exceeded_translation(language: Language) -> &'static str {
         Language::IT => "Soglia di Byte superata",
         Language::FR => "Seuil de donnée atteint",
         Language::ES => "¡Límite de bytes superado",
-        Language::PL => "Próg bajtów przekroczony",
+        Language::PL => "Przekroczono próg bajtów",
         Language::DE => "Byte-Grenzwert überschritten",
         Language::UK => "Ліміт байтів перевищено",
         Language::ZH => "达到设定的网络流量阈值",
@@ -2169,6 +2240,7 @@ pub fn bytes_exceeded_translation(language: Language) -> &'static str {
         Language::PT => "Limite de bytes excedido",
         Language::EL => "Το όριο των ψηφιολέξεων ξεπεράστηκε",
         // Language::FA => "آستانه بایت فراتر رفت",
+        Language::SQ => "U kapërcye pragu i bajtëve",
         Language::SV => "Gräns för bytes överskriden",
         Language::FI => "Tavuraja ylitetty",
         Language::JA => "バイト量の閾値を調査しました",
@@ -2177,7 +2249,7 @@ pub fn bytes_exceeded_translation(language: Language) -> &'static str {
         Language::ID => "Ambang batas byte terlampaui",
         Language::NL => "Byte-drempel overschreden",
         Language::HU => "Bájtküszöb meghaladva",
-        Language::SI => "බයිට් සීමාව ඉක්මවා ඇත",
+        Language::SI => "බයිට එළිපත් සීමාව ඉක්මවා ඇත",
         // Language::AR => "تم تجاوز حد البايتات",
     }
 }
@@ -2201,6 +2273,7 @@ pub fn bytes_exceeded_translation(language: Language) -> &'static str {
 //         Language::PT => format!("Foram trocados {value}"),
 //         Language::EL => format!("{value} έχουν ανταλλαγεί"),
 //         // Language::FA => format!("{value} بایت مبادله شده است"),
+//         Language::SQ => format!("{value} u shkëmbyen"),
 //         Language::SV => format!("{value} har utbytts"),
 //         Language::FI => format!("{value} on vaihdettu"),
 //         Language::JA => format!("{value} の送受信が発生しました"),
@@ -2232,6 +2305,7 @@ pub fn packets_exceeded_translation(language: Language) -> &'static str {
         Language::PT => "Limite de pacotes excedido",
         Language::EL => "Το όριο των πακέτων ξεπεράστηκε",
         // Language::FA => "آستانه بسته فراتر رفت",
+        Language::SQ => "U kapërcye pragu i paketave",
         Language::SV => "Paketgräns överskriden",
         Language::FI => "Pakettiraja ylitetty",
         Language::JA => "パケット数のしきい値を超過しました",
@@ -2240,7 +2314,7 @@ pub fn packets_exceeded_translation(language: Language) -> &'static str {
         Language::ID => "Ambang batas paket terlampaui",
         Language::NL => "Pakketdrempel overschreden",
         Language::HU => "Csomagküszöb meghaladva",
-        Language::SI => "පැකට් සීමාව ඉක්මවා ඇත",
+        Language::SI => "පැකට් එළිපත් සීමාව ඉක්මවා ඇත",
         // Language::AR => "تم تجاوز حد الحزم",
     }
 }
@@ -2285,6 +2359,10 @@ pub fn packets_exceeded_translation(language: Language) -> &'static str {
 //             npackets => format!("{npackets} πακέτα έχουν ανταλλαγεί"),
 //         },
 //         // Language::FA => format!("{value} بسته مبادله شده است"),
+//         Language::SQ => match value {
+//             1 => "1 paketë u shkëbye".to_owned(),
+//             npackets => format!("{npackets} paketa u shkëmbyen"),
+//         },
 //         Language::SV => match value {
 //             1 => "1 paket har utbytts".to_owned(),
 //             npackets => format!("{npackets} paket har utbytts"),
@@ -2310,7 +2388,7 @@ pub fn favorite_transmitted_translation(language: Language) -> &'static str {
         Language::IT => "Nuovi dati scambiati dai preferiti",
         Language::FR => "Nouvel échange de donnée depuis un favori",
         Language::ES => "¡Nuevos datos intercambiados de favoritos",
-        Language::PL => "Nowe dane wymienione z ulubionych",
+        Language::PL => "Nowe dane wymienione z ulubionymi",
         Language::DE => "Neue Daten mit deinen Favoriten ausgetauscht",
         Language::UK => "Нові дані обміняно з улюблених",
         Language::ZH => "收藏夹内的连接有新活动",
@@ -2322,6 +2400,7 @@ pub fn favorite_transmitted_translation(language: Language) -> &'static str {
         Language::PT => "Novos dados trocados dos favoritos",
         Language::EL => "Νέα δεδομένα έχουν ανταλλαγεί στα αγαπημένα",
         // Language::FA => "مبادله داده جدید از پسندیده ها",
+        Language::SQ => "Të preferuarit shkëmbejnë të dhëna të reja",
         Language::SV => "Ny data utbytt av favoriter",
         Language::FI => "Uusia tietoja vaihdettu suosikeista",
         Language::JA => "お気に入りのホストで新しいデータ送受信が発生しました",
@@ -2330,7 +2409,7 @@ pub fn favorite_transmitted_translation(language: Language) -> &'static str {
         Language::ID => "Data baru dipertukarkan dari favorit",
         Language::NL => "Nieuwe gegevens uitgewisseld van favorieten",
         Language::HU => "Új adatforgalom a kedvencekből",
-        Language::SI => "ප්‍රියතමවලින් නව දත්ත හුවමාරු විය",
+        Language::SI => "ප්‍රියතම වලින් නව දත්ත හුවමාරු විය",
         // Language::AR => "تم تبادل بيانات جديدة من المفضلة",
     }
 }
@@ -2364,9 +2443,9 @@ pub fn no_notifications_set_translation<'a>(language: Language) -> Text<'a, Styl
                                  Puedes activar las notificaciones desde los ajustes:"
         }
         Language::PL => {
-            "Nie włączyłeś jeszcze powiadomień!\n\n\
-                                 Po ich włączeniu, ta strona wyświetli dziennik twoich powiadomień\n\n\
-                                 Możesz włączyć powiadomienia w ustawieniach:"
+            "Powiadomienia nie zostały jeszcze włączone!\n\n\
+                                 Po ich włączeniu na tej stronie pojawi się dziennik powiadomień\n\n\
+                                 Możesz je włączyć w ustawieniach:"
         }
         Language::DE => {
             "Benachrichtigungen wurden noch nicht aktiviert!\n\n\
@@ -2421,6 +2500,11 @@ pub fn no_notifications_set_translation<'a>(language: Language) -> Text<'a, Styl
         // Language::FA => "شما هنوز اعلان ها را فعال نکرده اید!\n\n\
         //                          پس از آنکه آن ها را فعال کنید، این صفحه یک کارنامه از اعلان های شما را نمایش خواهد داد\n\n
         //                          شما می توانید اعلان ها را از پیکربندی فعال کنید:",
+        Language::SQ => {
+            "Nuk i keni aktivizuar njoftimet!\n\n\
+                                Kur i aktivizoni, kjo faqe do të tregojë një listë njoftimesh\n\n\
+                                Njoftimet mund të aktivizohen te parametrat:"
+        }
         Language::SV => {
             "Du har inte aktiverat notifikationer än!\n\n\
                                  Efter att du aktiverat dem så kommer denna sida att visa en logg av dina notifikationer\n\n\
@@ -2467,9 +2551,9 @@ pub fn no_notifications_set_translation<'a>(language: Language) -> Text<'a, Styl
         //                         يمكنك تمكين الإشعارات من الإعدادات:"
         // }
         Language::SI => {
-            "ඔබ තවම දැනුම්දීම් සක්‍රිය කර නැත!\n\n\
-                                 ඒවා සක්‍රිය කළ පසු, මෙම පිටුව ඔබේ දැනුම්දීම් පෙන්වනු ඇත\n\n\
-                                 ඔබට සැකසුම් තුළින් දැනුම්දීම් සක්‍රිය කළ හැක:"
+            "ඔබ තවමත් දැනුම්දීම් සක්‍රිය කර නැත!\n\n\
+                                 ඒවා සක්‍රිය කළ පසු, මෙම පිටුවේ දැනුම්දීම් සටහනක් පෙන්වනු ඇත\n\n\
+                                 ඔබට සැකසුම් තුළ දැනුම්දීම් සබල කළ හැකිය:"
         }
     })
 }
@@ -2498,7 +2582,7 @@ pub fn no_notifications_received_translation<'a>(language: Language) -> Text<'a,
                                  Cuando reciba una notificación, aparecerá aquí"
         }
         Language::PL => {
-            "Nic do wyświetlenia w tej chwili...\n\n\
+            "Na razie nic tu nie ma...\n\n\
                                  Gdy otrzymasz powiadomienie, pojawi się ono tutaj"
         }
         Language::DE => {
@@ -2545,6 +2629,10 @@ pub fn no_notifications_received_translation<'a>(language: Language) -> Text<'a,
         //     "در حال حاضر هیچ چیزی برای دیدن نیست...\n\n\
         //                          وقتی شما اعلانی دریافت می کنید، در اینجا نمایش داده خواهد شد"
         // }
+        Language::SQ => {
+            "Nuk ka asgjë për momentin...\n\n\
+                                Njoftimet që merrni do të shfaqen këtu"
+        }
         Language::SV => {
             "Inget att se för tillfället ...\n\n\
                                  När du tar emot en notifikation så kommer den att visas här"
@@ -2582,8 +2670,8 @@ pub fn no_notifications_received_translation<'a>(language: Language) -> Text<'a,
         //                         عند استلام إشعار، سيظهر هنا"
         // }
         Language::SI => {
-            "මේ මොහොතේ පෙන්වීමට කිසිවක් නැත...\n\n\
-                                 ඔබට දැනුම්දීමක් ලැබුණු විට එය මෙහි දිස්වනු ඇත"
+            "දැනට කිසිවක් නැත...\n\n\
+                                 ඔබට දැනුම්දීමක් ලැබුණු විට මෙහි දිස්වනු ඇත"
         }
     })
 }
@@ -2595,7 +2683,7 @@ pub fn only_last_30_translation(language: Language) -> &'static str {
         Language::IT => "Solo le ultime 30 notifiche sono mostrate",
         Language::FR => "Seulement les 30 dernières notifications sont affichées",
         Language::ES => "Sólo se muestran las últimas 30 notificaciones",
-        Language::PL => "Wyświetlane jest tylko 30 ostatnich powiadomień",
+        Language::PL => "Wyświetlanych jest tylko 30 ostatnich powiadomień",
         Language::DE => "Nur die letzten 30 Benachrichtigungen werden angezeigt",
         Language::UK => "Можете побачити лише 30 останніх повідомлень",
         Language::ZH => "仅显示最近 30 条通知",
@@ -2607,6 +2695,7 @@ pub fn only_last_30_translation(language: Language) -> &'static str {
         Language::PT => "São mostradas apenas as últimas 30 notificações",
         Language::EL => "Μόνο οι τελευταίες 30 ειδοποιήσεις απεικονίζονται",
         // Language::FA => "تنها ۳۰ اعلان آخر نمایش داده شده اند",
+        Language::SQ => "Shfaqen vetëm 30 njoftimet e fundit",
         Language::SV => "Endast de senaste 30 notifikationerna visas",
         Language::FI => "Vain viimeiset 30 ilmoitusta näytetään",
         Language::JA => "最新の通知 30 件のみ表示されます",
@@ -2615,7 +2704,7 @@ pub fn only_last_30_translation(language: Language) -> &'static str {
         Language::ID => "Hanya 30 notifikasi terakhir yang ditampilkan",
         Language::NL => "Alleen de laatste 30 meldingen worden weergegeven",
         Language::HU => "Itt csak az utolsó 30 értesítés van megjelenítve",
-        Language::SI => "අවසන් දැනුම්දීම් 30 පමණක් පෙන්වනු ලැබේ",
+        Language::SI => "අවසන් දැනුම්දීම් 30 පමණක් දිස්වනු ඇත",
         // Language::AR => "يتم عرض آخر 30 إشعارًا فقط",
     }
 }
