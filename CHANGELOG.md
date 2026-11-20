@@ -38,6 +38,8 @@ All Sniffnet releases with the relative changes are documented in this file.
 - Link-local addresses are shown with the suffix (link-local)
 - A Neighbors-list address stays until the router ARPs for it again and that ARP gets no reply
 - The Neighbors list is labeled Neighbors (count), and the separate Neighbors total is removed
+- The Neighbors list includes every IPv4 address of an Overheard Neighbor, including one that has not sent ARP
+- An mDNS query still counts the sender as a neighbor, and an mDNS instance or SRV target is not used as the neighbor's name
 - Analysis tab: group every flow by purpose. DNS-SD and UDP 2021 advertisements stay in an Announcements card, other traffic stays grouped until a dedicated analysis exists, and every other device on the local network appears under Local Neighbors, named from its announcement, hostname, or role such as Router or iPhone
 - Updated some of the existing translations to v1.6:
   - Sinhala ([#1362](https://github.com/GyulyVGC/sniffnet/pull/1362))

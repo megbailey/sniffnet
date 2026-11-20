@@ -13,7 +13,7 @@ use crate::gui::types::message::Message;
 use crate::gui::types::network_sort::{NetworkSort, directed, ipv4_order};
 use crate::gui::types::settings::Settings;
 use crate::networking::analysis::{TrafficPurpose, report_traffic};
-use crate::networking::neighbors::{local_neighbors, neighbor_name};
+use crate::networking::neighbors::{local_neighbors, neighbor_ipv4s, neighbor_name};
 use crate::networking::sweep::{RouterIdentity, identified_router, sweep_report};
 use crate::report::types::sort_type::SortType;
 use crate::translations::translations_6::{
@@ -79,6 +79,7 @@ pub fn network_sweep_page(sniffer: &Sniffer) -> Container<'_, Message, StyleType
             &report,
             sniffer.occupied_sort,
             &router,
+            &neighbor_ipv4s(&neighbors),
         ));
 
     let body = Column::new()
@@ -104,6 +105,7 @@ fn investigated_section(
     report: &crate::networking::sweep::SweepReport,
     occupied_sort: SortType,
     router: &RouterIdentity,
+    neighbors: &[String],
 ) -> Container<'static, Message, StyleType> {
     let mut stats = Column::new().spacing(14).width(Length::Fill).push(stat(
         possible_addresses_translation(language),
@@ -127,7 +129,7 @@ fn investigated_section(
                 ip_list(
                     occupied_ips_translation(language),
                     no_occupied_ips_translation(language),
-                    &report.occupied_ips,
+                    neighbors,
                     occupied_sort,
                     NetworkSort::Occupied,
                     link_local_suffix_translation(language),

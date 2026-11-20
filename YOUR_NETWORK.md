@@ -41,35 +41,18 @@ The broadcast MAC `ff:ff:ff:ff:ff:ff` folds into another row for the same IPv4. 
 An IPv4 that was both a destination and a source is a confirmed device. IPv6 and other non-IPv4 rows join that IPv4 when any of these is true:
 
 - They share a real MAC. A shared MAC wins over a shared name.
-- Their normalized names match.
+- Their normalized resolved hostnames match. An mDNS instance or SRV target is not a name.
 - An announcement attached the addresses to each other.
 
 If more than one IPv4 matches, the lowest IPv4 is kept. Names are compared after trimming, lowercasing, turning a curly apostrophe into a straight one, and removing a trailing `.local`.
 
 ### Neighbor
 
-The label is chosen in this order:
+The label is a resolved hostname from any of the device's addresses. A name learned on a link-local IPv6 address stays when an IPv4 address of the same device is present. A value that is empty or only an IP is ignored. A trailing dot is removed. When no hostname is known, the label is an address of the device.
 
-1. The SRV hostname from an announcement for that device, such as `mbs-ipad.local`.
-2. A resolved hostname from any of the device's addresses. A name learned on a link-local IPv6 address stays when an IPv4 address of the same device is present. A value that is empty or only an IP is ignored. A trailing dot is removed.
-3. The announcement instance.
-4. An address of the device.
+mDNS still identifies the sender as a neighbor and counts its packets, protocols, and services. The instance name and SRV target inside that mDNS are not the neighbor's name. A query is included in that traffic. Records carried in the query stay with the device that responds.
 
 The label is the name alone, with no role prefix.
-
-When one device has several announcements, the instance that is kept is chosen by rank. An equal rank keeps the lexicographically smaller instance. The rank is used only to choose the instance. It is:
-
-| Rank | Match |
-| --- | --- |
-| 0 | Service contains `googlecast` |
-| 1 | Instance contains `tv` |
-| 2 | Service contains `remotepairing`, instance contains `iphone`, or service contains `mobdev` |
-| 3 | Service contains `airplay` or `raop` |
-| 4 | Service contains `companion-link` |
-| 5 | Service contains `bambu` or `printer` |
-| 9 | Anything else, using a readable form of the service name |
-
-The SRV hostname is stored when that instance replaces the previous one, or when no SRV hostname has been stored yet.
 
 Service names on the row are joined with commas. Protocols and traffic values are joined the same way. The Traffic column is unicast, multicast, or broadcast, taken from the destination of each flow.
 
@@ -83,16 +66,9 @@ The number is the count of usable IPv4 host addresses on the capture interface. 
 
 ## Neighbors list
 
-The Neighbors list is the IPv4 addresses currently in use. The heading is `Neighbors (count)`.
+The Neighbors list is every IPv4 address of an Overheard Neighbor. The heading is `Neighbors (count)`.
 
-An address is in the list when:
-
-- It is this computer's interface IPv4, or
-- It sent traffic for at least 30 seconds of packet time, and the router has not since sent an ARP for it that went unanswered.
-
-Only a sender qualifies. The destination of a probe, including an ARP request, stays out of the list. The gateway is included when it meets the sender rule. The list is sorted by numeric IPv4.
-
-The 30 seconds is the span of packet timestamps. A timestamp of 0 moves the start of the span earlier and can make the span reach 30 seconds. After that, the address stays for as long as the router takes to ARP for it again. A later packet from that address, including an ARP reply, answers the ARP and the address stays. Silence after the router's ARP removes it. An ARP from anyone other than the gateway does not remove it.
+An address is listed when it appears on an Overheard Neighbors row. Sending any traffic on that device is enough. The address does not have to be the source of an ARP packet, and it does not have to span 30 seconds. A probe target that never sends stays out, because it is not an Overheard Neighbor. The list is sorted by numeric IPv4.
 
 ## Router
 
@@ -110,9 +86,9 @@ Columns are Instance, Address, Protocol, Traffic, Service, and Packets. Traffic 
 
 ### Parsed announcements
 
-UDP payloads are parsed when either port is 5353 (DNS-SD / mDNS) or 2021 (Bambu notify). Rows are grouped by instance, service, and traffic type. The address column is the busiest IPv4 source in the group and the MAC from the frame that sent it, written as `address, mac`. If the group has no IPv4, the busiest other address is shown. Protocols are UDP.
+UDP payloads are parsed when either port is 5353 (DNS-SD / mDNS) or 2021 (Bambu notify). An mDNS query is not an announcement. Records in a query are names the sender already knows, so they stay with the device that responds rather than the device that asked. Rows are grouped by instance, service, and traffic type. The address column is the busiest IPv4 source in the group and the MAC from the frame that sent it, written as `address, mac`. If the group has no IPv4, the busiest other address is shown. Protocols are UDP.
 
-The instance is the DNS-SD instance, the name before the service type. For remote pairing that is often a UUID. The SRV target is stored separately and is what Overheard Neighbors uses as the device name. A and AAAA records are attached to that announcement when their owner name equals the SRV target, after lowercasing, up to three addresses. Those extra addresses link the device's other addresses in Overheard Neighbors. The Discovery address column stays the busiest source.
+The instance is the DNS-SD instance, the name before the service type. For remote pairing that is often a UUID. The SRV target is stored with that announcement. A and AAAA records are attached when their owner name equals the SRV target, after lowercasing, up to three addresses. Those extra addresses link the device's other addresses in Overheard Neighbors. They do not supply the neighbor's name. The Discovery address column stays the busiest source.
 
 A Bambu notify uses the device name and model from the payload. It has no SRV target.
 

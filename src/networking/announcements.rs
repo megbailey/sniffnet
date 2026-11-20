@@ -312,6 +312,11 @@ fn parse_mdns(payload: &[u8]) -> Vec<ObservedAnnouncement> {
     if payload.len() < 12 {
         return Vec::new();
     }
+    // The QR bit marks a response. A query's answer section is known-answer suppression:
+    // records the sender already knows about other devices, not its own name.
+    if payload[2] & 0x80 == 0 {
+        return Vec::new();
+    }
     let questions = u16::from_be_bytes([payload[4], payload[5]]) as usize;
     let answers = u16::from_be_bytes([payload[6], payload[7]]) as usize;
     let authorities = u16::from_be_bytes([payload[8], payload[9]]) as usize;
@@ -594,6 +599,36 @@ mod tests {
         msg.extend(rdlength.to_be_bytes());
         msg.extend(target);
         msg
+    }
+
+    #[test]
+    fn an_mdns_query_does_not_take_another_devices_name() {
+        let mut info = InfoTraffic::default();
+        let mut query = ptr_message("_raop._tcp.local", "speaker@mb's macbook._raop._tcp.local");
+        query[2] = 0;
+        observe(
+            &mut info,
+            &query,
+            [192, 168, 1, 166],
+            [224, 0, 0, 251],
+            5353,
+            5353,
+        );
+        assert!(info.announcements.is_empty());
+
+        let response = ptr_message("_raop._tcp.local", "speaker@mb's macbook._raop._tcp.local");
+        observe(
+            &mut info,
+            &response,
+            [192, 168, 1, 191],
+            [192, 168, 1, 166],
+            5353,
+            5353,
+        );
+        assert_eq!(info.announcements.len(), 1);
+        let (key, _) = info.announcements.iter().next().unwrap();
+        assert_eq!(key.instance, "speaker@mb's macbook");
+        assert_eq!(key.source, IpAddr::V4(Ipv4Addr::new(192, 168, 1, 191)));
     }
 
     fn observe(

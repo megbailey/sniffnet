@@ -1,7 +1,7 @@
 //! Local devices that originate traffic on this interface.
 //!
-//! A neighbor is any address on this network other than the host itself. Announcement
-//! instances, hostnames, and a few well-known roles supply the label.
+//! A neighbor is any address on this network other than the host itself. A resolved
+//! hostname supplies the label. An mDNS instance or SRV target does not.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::net::IpAddr;
@@ -141,10 +141,8 @@ pub fn local_neighbors(
         bucket.note_service(&key.service, rank, &role, &key.instance, &info.srv_target);
         bucket.note_traffic_type(traffic_label(key.traffic));
         bucket.note_address(key.source);
-        note_device_name(&mut device_names, key.source, &key.instance);
         for extra in &info.extra_addresses {
             bucket.note_address(*extra);
-            note_device_name(&mut device_names, *extra, &key.instance);
             linked_addresses
                 .entry(key.source)
                 .or_default()
@@ -183,12 +181,7 @@ pub fn local_neighbors(
         let mut known = bucket.addresses.clone();
         known.insert(address);
         neighbors.push(LocalNeighbor {
-            label: neighbor_label(
-                &bucket.instance,
-                hostname_for(&known, names),
-                &bucket.srv_target,
-                &address,
-            ),
+            label: neighbor_label(hostname_for(&known, names), &address),
             services: joined(&bucket.services),
             protocols: joined(&bucket.protocols),
             traffic_types: joined(&bucket.traffic_types),
@@ -207,6 +200,22 @@ pub fn local_neighbors(
             .then_with(|| left.address.cmp(&right.address))
     });
     neighbors
+}
+
+/// IPv4 addresses of overheard neighbors, one each, in numeric order.
+///
+/// An address that shares a device with other traffic is included even when that IPv4
+/// was not the source of an ARP packet.
+pub fn neighbor_ipv4s(neighbors: &[LocalNeighbor]) -> Vec<String> {
+    let mut ips = BTreeSet::new();
+    for neighbor in neighbors {
+        for part in neighbor.address.split(',') {
+            if let Ok(IpAddr::V4(ip)) = part.trim().parse() {
+                ips.insert(ip);
+            }
+        }
+    }
+    ips.into_iter().map(|ip| ip.to_string()).collect()
 }
 
 struct FlowNotes {
@@ -490,20 +499,9 @@ fn hostname_for<'a>(
     ordered.iter().find_map(|address| names.get(address))
 }
 
-fn neighbor_label(
-    instance: &str,
-    hostname: Option<&String>,
-    srv_target: &str,
-    address: &IpAddr,
-) -> String {
-    if !srv_target.is_empty() {
-        return srv_target.to_string();
-    }
+fn neighbor_label(hostname: Option<&String>, address: &IpAddr) -> String {
     if let Some(name) = hostname {
         return name.clone();
-    }
-    if !instance.is_empty() {
-        return instance.to_string();
     }
     address.to_string()
 }
@@ -684,9 +682,9 @@ mod tests {
             labels,
             vec![
                 "192.168.1.171",
-                "mb's macbook",
-                "Hisense Xumo TV",
-                "Living Room",
+                "192.168.1.52",
+                "192.168.1.50",
+                "192.168.1.51",
             ]
         );
         let macbook = neighbors
@@ -698,7 +696,7 @@ mod tests {
         assert_eq!(macbook.protocols, "UDP");
         assert_eq!(macbook.traffic_types, "multicast");
         assert_eq!(neighbors[2].packets, 5);
-        assert_eq!(neighbors[3].label, "Living Room");
+        assert_eq!(neighbors[3].label, "192.168.1.51");
     }
 
     #[test]
@@ -720,7 +718,7 @@ mod tests {
 
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
         assert_eq!(neighbors.len(), 1);
-        assert_eq!(neighbors[0].label, "Hisense Xumo TV");
+        assert_eq!(neighbors[0].label, "192.168.1.50");
         assert_eq!(neighbors[0].packets, 4);
         assert_eq!(neighbors[0].services, "_airplay._tcp, _raop._tcp");
         assert_eq!(neighbors[0].protocols, "UDP");
@@ -753,7 +751,7 @@ mod tests {
             .iter()
             .map(|neighbor| neighbor.label.as_str())
             .collect();
-        assert_eq!(labels, vec!["mb's macbook", "Other Speaker"]);
+        assert_eq!(labels, vec!["192.168.1.171", "192.168.1.60"]);
         assert!(
             neighbors
                 .iter()
@@ -838,7 +836,7 @@ mod tests {
             .iter()
             .map(|neighbor| neighbor.label.as_str())
             .collect();
-        assert_eq!(labels, vec!["mbs-ipad.local", "pairing"]);
+        assert_eq!(labels, vec!["megan-iphone.local", "192.168.1.41"]);
     }
 
     #[test]
@@ -861,7 +859,7 @@ mod tests {
 
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
         assert_eq!(neighbors.len(), 1);
-        assert_eq!(neighbors[0].label, "tsuki-dreams-3DP");
+        assert_eq!(neighbors[0].label, "192.168.1.149");
         assert_eq!(neighbors[0].packets, 6);
     }
 
@@ -928,7 +926,7 @@ mod tests {
             .iter()
             .find(|neighbor| neighbor.address == "192.168.1.52")
             .unwrap();
-        assert_eq!(continuity.label, "mb's macbook");
+        assert_eq!(continuity.label, "192.168.1.52");
         assert_eq!(continuity.services, "_companion-link._tcp");
         assert_eq!(continuity.protocols, "UDP");
         assert_eq!(continuity.traffic_types, "multicast");
@@ -1123,7 +1121,7 @@ mod tests {
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
         let printer = neighbors
             .iter()
-            .find(|neighbor| neighbor.label == "tsuki-dreams-3DP")
+            .find(|neighbor| neighbor.address == "192.168.1.149")
             .unwrap();
         assert_eq!(printer.address, "192.168.1.149");
         assert_eq!(printer.mac, "20:0d:3d:fc:cf:cb");
@@ -1299,5 +1297,51 @@ mod tests {
             .unwrap();
         assert_eq!(device.label, "mbs-iphone.local");
         assert_eq!(device.address, "192.168.1.87, fe80::4d:3ce9:8b5a:688a");
+    }
+
+    #[test]
+    fn mdns_identifies_a_neighbor_without_using_its_instance_as_the_name() {
+        let mut announcements = HashMap::new();
+        let (key, info) = announced("speaker@mb's macbook", "_raop._tcp", [192, 168, 1, 166], 4);
+        announcements.insert(key, info);
+        let mut map = HashMap::new();
+        let (sent, stat) = flow(
+            [192, 168, 1, 166],
+            IpAddr::V4(Ipv4Addr::new(224, 0, 0, 251)),
+            4,
+        );
+        map.insert(sent, stat);
+
+        let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
+        assert_eq!(neighbors.len(), 1);
+        assert_eq!(neighbors[0].label, "192.168.1.166");
+        assert_eq!(neighbors[0].services, "_raop._tcp");
+        assert_eq!(neighbors[0].packets, 4);
+    }
+
+    #[test]
+    fn the_neighbor_list_includes_an_ipv4_that_did_not_send_arp() {
+        let neighbors = vec![
+            listed("192.168.1.87, fe80::4d:3ce9:8b5a:688a"),
+            listed("192.168.1.191"),
+            listed("fe80::1"),
+        ];
+        assert_eq!(
+            neighbor_ipv4s(&neighbors),
+            vec!["192.168.1.87".to_string(), "192.168.1.191".to_string()]
+        );
+    }
+
+    fn listed(address: &str) -> LocalNeighbor {
+        LocalNeighbor {
+            label: String::new(),
+            services: String::new(),
+            protocols: String::new(),
+            traffic_types: String::new(),
+            address: address.to_string(),
+            mac: String::new(),
+            packets: 1,
+            bytes: 0,
+        }
     }
 }
