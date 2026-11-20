@@ -18,10 +18,10 @@ use crate::networking::types::info_address_port_pair::InfoAddressPortPair;
 use crate::networking::types::traffic_type::TrafficType;
 use crate::utils::formatted_strings::mac_from_dec_to_hex;
 
-/// One other device on this network, such as `Router — 192.168.1.254` or `kikkomanpad.local`.
+/// One other device on this network, such as `kikkomanpad.local` or `192.168.1.254`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LocalNeighbor {
-    /// Role and instance, for example `Chromecast — Living Room`.
+    /// Hostname, announced name, or address.
     pub label: String,
     /// Service types advertised by this device.
     pub services: String,
@@ -29,8 +29,10 @@ pub struct LocalNeighbor {
     pub protocols: String,
     /// Unicast, multicast, or broadcast.
     pub traffic_types: String,
-    /// Addresses observed for the device.
+    /// IPv4 and IPv6 addresses observed for the device.
     pub address: String,
+    /// Device MAC, when one was seen.
+    pub mac: String,
     /// Packets this device exchanged with the host, or advertised on the local network.
     pub packets: u128,
     /// Bytes counted alongside [`Self::packets`].
@@ -47,6 +49,8 @@ struct Bucket {
     rank: u8,
     role: String,
     instance: String,
+    srv_target: String,
+    addresses: BTreeSet<IpAddr>,
 }
 
 impl Bucket {
@@ -60,21 +64,33 @@ impl Bucket {
         }
     }
 
-    fn note_service(&mut self, service: &str, rank: u8, role: &str, instance: &str) {
+    fn note_service(
+        &mut self,
+        service: &str,
+        rank: u8,
+        role: &str,
+        instance: &str,
+        srv_target: &str,
+    ) {
         if !service.is_empty() {
             self.services.insert(service.to_string());
         }
-        if instance.is_empty() {
-            return;
-        }
-        let replace = self.instance.is_empty()
-            || rank < self.rank
-            || (rank == self.rank && instance < self.instance.as_str());
+        let replace = !instance.is_empty()
+            && (self.instance.is_empty()
+                || rank < self.rank
+                || (rank == self.rank && instance < self.instance.as_str()));
         if replace {
             self.rank = rank;
             self.role = role.to_string();
             self.instance = instance.to_string();
         }
+        if !srv_target.is_empty() && (replace || self.srv_target.is_empty()) {
+            self.srv_target = srv_target.to_string();
+        }
+    }
+
+    fn note_address(&mut self, address: IpAddr) {
+        self.addresses.insert(address);
     }
 
     fn add_traffic(&mut self, packets: u128, bytes: u128) {
@@ -88,7 +104,14 @@ impl Bucket {
         self.traffic_types
             .extend(other.traffic_types.iter().cloned());
         self.add_traffic(other.packets, other.bytes);
-        self.note_service("", other.rank, &other.role, &other.instance);
+        self.note_service(
+            "",
+            other.rank,
+            &other.role,
+            &other.instance,
+            &other.srv_target,
+        );
+        self.addresses.extend(other.addresses.iter().copied());
     }
 }
 
@@ -115,10 +138,12 @@ pub fn local_neighbors(
         let (rank, role) = role_of(&key.service, &key.instance);
         let mac = key.source.is_ipv4().then(|| info.source_mac()).flatten();
         let bucket = rows.entry((key.source, mac)).or_default();
-        bucket.note_service(&key.service, rank, &role, &key.instance);
+        bucket.note_service(&key.service, rank, &role, &key.instance, &info.srv_target);
         bucket.note_traffic_type(traffic_label(key.traffic));
+        bucket.note_address(key.source);
         note_device_name(&mut device_names, key.source, &key.instance);
         for extra in &info.extra_addresses {
+            bucket.note_address(*extra);
             note_device_name(&mut device_names, *extra, &key.instance);
             linked_addresses
                 .entry(key.source)
@@ -155,18 +180,20 @@ pub fn local_neighbors(
         if bucket.packets == 0 {
             continue;
         }
+        let mut known = bucket.addresses.clone();
+        known.insert(address);
         neighbors.push(LocalNeighbor {
             label: neighbor_label(
-                &bucket.role,
                 &bucket.instance,
-                names.get(&address),
+                hostname_for(&known, names),
+                &bucket.srv_target,
                 &address,
-                local_addresses,
             ),
             services: joined(&bucket.services),
             protocols: joined(&bucket.protocols),
             traffic_types: joined(&bucket.traffic_types),
-            address: format_pair(address, mac),
+            address: format_addresses(&known),
+            mac: format_mac(mac),
             packets: bucket.packets,
             bytes: bucket.bytes,
         });
@@ -215,6 +242,7 @@ fn record_flows(
             }
             let mac = address.is_ipv4().then_some(mac).flatten();
             let bucket = rows.entry((address, mac)).or_default();
+            bucket.note_address(address);
             bucket.add_traffic(info.packets, info.bytes);
             bucket.note_protocol(key.protocol);
             bucket.note_traffic_type(traffic_label(destination_traffic_type(
@@ -428,42 +456,56 @@ pub fn neighbor_name(rdns: &str, domain: &str) -> Option<String> {
         .map(|value| value.trim_end_matches('.').to_string())
 }
 
-fn format_pair(address: IpAddr, mac: Option<[u8; 6]>) -> String {
-    match (address, mac) {
-        (IpAddr::V4(ip), Some(mac)) => format!("{ip}, {}", mac_from_dec_to_hex(mac)),
-        (address, _) => address.to_string(),
+fn format_addresses(addresses: &BTreeSet<IpAddr>) -> String {
+    let mut ordered: Vec<_> = addresses.iter().copied().collect();
+    ordered.sort_by_key(ip_rank);
+    ordered
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn format_mac(mac: Option<[u8; 6]>) -> String {
+    match mac {
+        Some(mac) if !is_discovery_mac(mac) => mac_from_dec_to_hex(mac),
+        _ => String::new(),
     }
+}
+
+fn ip_rank(address: &IpAddr) -> (u8, u128) {
+    match address {
+        IpAddr::V4(ip) => (0, u128::from(u32::from(*ip))),
+        IpAddr::V6(ip) => (1 + u8::from(ip.is_unicast_link_local()), u128::from(*ip)),
+    }
+}
+
+/// A resolved hostname from any address of the device. An IPv4 row keeps a name learned on its IPv6.
+fn hostname_for<'a>(
+    addresses: &BTreeSet<IpAddr>,
+    names: &'a HashMap<IpAddr, String>,
+) -> Option<&'a String> {
+    let mut ordered: Vec<_> = addresses.iter().copied().collect();
+    ordered.sort_by_key(ip_rank);
+    ordered.iter().find_map(|address| names.get(address))
 }
 
 fn neighbor_label(
-    role: &str,
     instance: &str,
     hostname: Option<&String>,
+    srv_target: &str,
     address: &IpAddr,
-    local_addresses: &[Address],
 ) -> String {
-    if !instance.is_empty() {
-        return format!("{role} — {instance}");
+    if !srv_target.is_empty() {
+        return srv_target.to_string();
     }
     if let Some(name) = hostname {
-        return label_for_hostname(name);
+        return name.clone();
     }
-    if is_gateway(address, local_addresses) {
-        format!("Router — {address}")
-    } else {
-        address.to_string()
+    if !instance.is_empty() {
+        return instance.to_string();
     }
-}
-
-fn label_for_hostname(name: &str) -> String {
-    let lower = name.to_ascii_lowercase();
-    if lower.contains("iphone") {
-        format!("iPhone — {name}")
-    } else if lower.contains("ipad") {
-        format!("iPad — {name}")
-    } else {
-        name.to_string()
-    }
+    address.to_string()
 }
 
 pub(crate) fn on_this_network(address: &IpAddr, local_addresses: &[Address]) -> bool {
@@ -529,10 +571,9 @@ fn role_of(service: &str, instance: &str) -> (u8, String) {
         (0, "Chromecast".to_string())
     } else if instance.contains("tv") {
         (1, "TV".to_string())
-    } else if instance.contains("iphone")
-        || service.contains("remotepairing")
-        || service.contains("mobdev")
-    {
+    } else if service.contains("remotepairing") {
+        (2, "Apple device".to_string())
+    } else if instance.contains("iphone") || service.contains("mobdev") {
         (2, "iPhone".to_string())
     } else if service.contains("airplay") || service.contains("raop") {
         (3, "AirPlay".to_string())
@@ -643,9 +684,9 @@ mod tests {
             labels,
             vec![
                 "192.168.1.171",
-                "AirPlay — mb's macbook",
-                "TV — Hisense Xumo TV",
-                "Chromecast — Living Room",
+                "mb's macbook",
+                "Hisense Xumo TV",
+                "Living Room",
             ]
         );
         let macbook = neighbors
@@ -657,7 +698,7 @@ mod tests {
         assert_eq!(macbook.protocols, "UDP");
         assert_eq!(macbook.traffic_types, "multicast");
         assert_eq!(neighbors[2].packets, 5);
-        assert_eq!(neighbors[3].label, "Chromecast — Living Room");
+        assert_eq!(neighbors[3].label, "Living Room");
     }
 
     #[test]
@@ -679,7 +720,7 @@ mod tests {
 
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
         assert_eq!(neighbors.len(), 1);
-        assert_eq!(neighbors[0].label, "TV — Hisense Xumo TV");
+        assert_eq!(neighbors[0].label, "Hisense Xumo TV");
         assert_eq!(neighbors[0].packets, 4);
         assert_eq!(neighbors[0].services, "_airplay._tcp, _raop._tcp");
         assert_eq!(neighbors[0].protocols, "UDP");
@@ -712,10 +753,7 @@ mod tests {
             .iter()
             .map(|neighbor| neighbor.label.as_str())
             .collect();
-        assert_eq!(
-            labels,
-            vec!["AirPlay — mb's macbook", "AirPlay — Other Speaker"]
-        );
+        assert_eq!(labels, vec!["mb's macbook", "Other Speaker"]);
         assert!(
             neighbors
                 .iter()
@@ -762,13 +800,45 @@ mod tests {
             .collect();
         assert_eq!(
             labels,
-            vec![
-                "Router — 192.168.1.254",
-                "kikkomanpad.local",
-                "iPhone — megan-iphone.local",
-            ]
+            vec!["192.168.1.254", "kikkomanpad.local", "megan-iphone.local",]
         );
         assert_eq!(neighbors[0].packets, 7);
+    }
+
+    #[test]
+    fn remotepairing_uses_a_hostname_or_apple_device() {
+        let mut announcements = HashMap::new();
+        let (named_key, mut named_info) = announced(
+            "4157214E-83A8-4816-89AA-A8E2413CB59B",
+            "_remotepairing._tcp",
+            [192, 168, 1, 40],
+            4,
+        );
+        named_info.srv_target = "mbs-ipad.local".to_string();
+        announcements.insert(named_key, named_info);
+        let (bare_key, bare_info) =
+            announced("pairing", "_remotepairing._tcp", [192, 168, 1, 41], 2);
+        announcements.insert(bare_key, bare_info);
+
+        let mut map = HashMap::new();
+        let multicast = IpAddr::V4(Ipv4Addr::new(224, 0, 0, 251));
+        let (named_flow, named_stat) = flow([192, 168, 1, 40], multicast, 4);
+        map.insert(named_flow, named_stat);
+        let (bare_flow, bare_stat) = flow([192, 168, 1, 41], multicast, 2);
+        map.insert(bare_flow, bare_stat);
+
+        let mut names = HashMap::new();
+        names.insert(
+            IpAddr::V4(Ipv4Addr::new(192, 168, 1, 40)),
+            "megan-iphone.local".to_string(),
+        );
+
+        let neighbors = local_neighbors(&announcements, &map, &local_host(), &names);
+        let labels: Vec<_> = neighbors
+            .iter()
+            .map(|neighbor| neighbor.label.as_str())
+            .collect();
+        assert_eq!(labels, vec!["mbs-ipad.local", "pairing"]);
     }
 
     #[test]
@@ -791,7 +861,7 @@ mod tests {
 
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
         assert_eq!(neighbors.len(), 1);
-        assert_eq!(neighbors[0].label, "Printer — tsuki-dreams-3DP");
+        assert_eq!(neighbors[0].label, "tsuki-dreams-3DP");
         assert_eq!(neighbors[0].packets, 6);
     }
 
@@ -858,7 +928,7 @@ mod tests {
             .iter()
             .find(|neighbor| neighbor.address == "192.168.1.52")
             .unwrap();
-        assert_eq!(continuity.label, "Continuity — mb's macbook");
+        assert_eq!(continuity.label, "mb's macbook");
         assert_eq!(continuity.services, "_companion-link._tcp");
         assert_eq!(continuity.protocols, "UDP");
         assert_eq!(continuity.traffic_types, "multicast");
@@ -905,7 +975,8 @@ mod tests {
 
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
         assert_eq!(neighbors.len(), 1);
-        assert_eq!(neighbors[0].address, "192.168.1.52, aa:bb:cc:dd:ee:ff");
+        assert_eq!(neighbors[0].address, "192.168.1.52");
+        assert_eq!(neighbors[0].mac, "aa:bb:cc:dd:ee:ff");
         assert_eq!(neighbors[0].packets, 4);
         assert_eq!(neighbors[0].services, "_airplay._tcp, _raop._tcp");
         assert_eq!(neighbors[0].protocols, "UDP");
@@ -973,16 +1044,19 @@ mod tests {
             dst_addr: None,
         });
         let neighbors = local_neighbors(&HashMap::new(), &map, &local, &HashMap::new());
-        assert!(
-            neighbors
-                .iter()
-                .all(|neighbor| !neighbor.address.contains("fe80"))
-        );
         let device = neighbors
             .iter()
-            .find(|neighbor| neighbor.address.starts_with("192.168.1.52"))
+            .find(|neighbor| neighbor.address.contains("192.168.1.52"))
             .unwrap();
-        assert_eq!(device.address, "192.168.1.52, aa:bb:cc:dd:ee:11");
+        assert_eq!(device.address, "192.168.1.52, fe80::4");
+        assert_eq!(device.mac, "aa:bb:cc:dd:ee:11");
+        assert_eq!(
+            neighbors
+                .iter()
+                .filter(|neighbor| neighbor.address.contains("fe80"))
+                .count(),
+            1
+        );
         assert_eq!(device.packets, 8);
     }
 
@@ -1049,11 +1123,12 @@ mod tests {
         let neighbors = local_neighbors(&announcements, &map, &local_host(), &HashMap::new());
         let printer = neighbors
             .iter()
-            .find(|neighbor| neighbor.label == "Printer — tsuki-dreams-3DP")
+            .find(|neighbor| neighbor.label == "tsuki-dreams-3DP")
             .unwrap();
-        assert_eq!(printer.address, "192.168.1.149, 20:0d:3d:fc:cf:cb");
+        assert_eq!(printer.address, "192.168.1.149");
+        assert_eq!(printer.mac, "20:0d:3d:fc:cf:cb");
         assert_eq!(printer.packets, 8);
-        assert!(!printer.address.contains("ff:ff:ff:ff:ff:ff"));
+        assert!(!printer.mac.contains("ff:ff:ff:ff:ff:ff"));
         assert!(
             neighbors
                 .iter()
@@ -1132,7 +1207,8 @@ mod tests {
             .iter()
             .find(|neighbor| neighbor.address.starts_with("192.168.1.101"))
             .unwrap();
-        assert_eq!(reply.address, "192.168.1.101, aa:bb:cc:dd:ee:10");
+        assert_eq!(reply.address, "192.168.1.101");
+        assert_eq!(reply.mac, "aa:bb:cc:dd:ee:10");
         assert_eq!(reply.packets, 2);
         assert_eq!(reply.protocols, "ARP");
         assert_eq!(reply.traffic_types, "unicast");
@@ -1152,5 +1228,76 @@ mod tests {
                 .iter()
                 .all(|neighbor| !neighbor.address.contains("192.168.1.171"))
         );
+    }
+
+    #[test]
+    fn a_link_local_hostname_stays_after_the_ipv4_joins() {
+        let mac = [0x0a, 0x98, 0xa1, 0x5c, 0x99, 0xa8];
+        let phone = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 87));
+        let link_local = IpAddr::V6(std::net::Ipv6Addr::new(
+            0xfe80, 0, 0, 0, 0x4d, 0x3ce9, 0x8b5a, 0x688a,
+        ));
+        let mut map = HashMap::new();
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                Some(5353),
+                phone,
+                Some(5353),
+                crate::Protocol::Udp,
+            ),
+            InfoAddressPortPair {
+                packets: 1,
+                dst_mac: Some(mac),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                phone,
+                Some(5353),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 171)),
+                Some(5353),
+                crate::Protocol::Udp,
+            ),
+            InfoAddressPortPair {
+                packets: 4,
+                src_mac: Some(mac),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                link_local,
+                Some(5353),
+                "fe80::1004:7dc4:6036:a2df".parse().unwrap(),
+                Some(5353),
+                crate::Protocol::Udp,
+            ),
+            InfoAddressPortPair {
+                packets: 6,
+                src_mac: Some(mac),
+                ..Default::default()
+            },
+        );
+        let mut local = local_host();
+        local.push(Address {
+            addr: IpAddr::V6(std::net::Ipv6Addr::LOCALHOST),
+            netmask: Some(IpAddr::V6(std::net::Ipv6Addr::new(
+                0xffff, 0xffff, 0xffff, 0xffff, 0, 0, 0, 0,
+            ))),
+            broadcast_addr: None,
+            dst_addr: None,
+        });
+        let mut names = HashMap::new();
+        names.insert(link_local, "mbs-iphone.local".to_string());
+
+        let neighbors = local_neighbors(&HashMap::new(), &map, &local, &names);
+        let device = neighbors
+            .iter()
+            .find(|neighbor| neighbor.mac == "0a:98:a1:5c:99:a8")
+            .unwrap();
+        assert_eq!(device.label, "mbs-iphone.local");
+        assert_eq!(device.address, "192.168.1.87, fe80::4d:3ce9:8b5a:688a");
     }
 }

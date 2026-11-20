@@ -1,7 +1,7 @@
 use crate::gui::types::message::Message;
 use crate::translations::translations::{notifications_translation, overview_translation};
 use crate::translations::translations_2::inspect_translation;
-use crate::translations::translations_6::{network_sweep_translation, your_traffic_translation};
+use crate::translations::translations_6::network_sweep_translation;
 use crate::utils::types::icon::Icon;
 use crate::{Language, StyleType};
 use serde::{Deserialize, Serialize};
@@ -14,22 +14,19 @@ pub enum RunningPage {
     Overview,
     /// Inspect page.
     Inspect,
-    /// Packets this computer sent or received on the capture interface.
-    ///
-    /// `Analysis` and `Announcements` are accepted so a config saved by a removed tab still opens.
-    #[serde(alias = "Analysis", alias = "Announcements")]
-    YourTraffic,
     /// Local addresses that were probed and did not answer.
+    ///
+    /// `Analysis`, `Announcements`, and `YourTraffic` are accepted so a config saved by a removed tab still opens.
+    #[serde(alias = "Analysis", alias = "Announcements", alias = "YourTraffic")]
     NetworkSweep,
     /// Notifications page.
     Notifications,
 }
 
 impl RunningPage {
-    pub const ALL: [RunningPage; 5] = [
+    pub const ALL: [RunningPage; 4] = [
         RunningPage::Overview,
         RunningPage::Inspect,
-        RunningPage::YourTraffic,
         RunningPage::NetworkSweep,
         RunningPage::Notifications,
     ];
@@ -38,7 +35,6 @@ impl RunningPage {
         match self {
             RunningPage::Overview => overview_translation(language),
             RunningPage::Inspect => inspect_translation(language),
-            RunningPage::YourTraffic => your_traffic_translation(language),
             RunningPage::NetworkSweep => network_sweep_translation(language),
             RunningPage::Notifications => notifications_translation(language),
         }
@@ -47,8 +43,7 @@ impl RunningPage {
     pub fn next(self) -> Self {
         match self {
             RunningPage::Overview => RunningPage::Inspect,
-            RunningPage::Inspect => RunningPage::YourTraffic,
-            RunningPage::YourTraffic => RunningPage::NetworkSweep,
+            RunningPage::Inspect => RunningPage::NetworkSweep,
             RunningPage::NetworkSweep => RunningPage::Notifications,
             RunningPage::Notifications => RunningPage::Overview,
         }
@@ -58,8 +53,7 @@ impl RunningPage {
         match self {
             RunningPage::Overview => RunningPage::Notifications,
             RunningPage::Inspect => RunningPage::Overview,
-            RunningPage::YourTraffic => RunningPage::Inspect,
-            RunningPage::NetworkSweep => RunningPage::YourTraffic,
+            RunningPage::NetworkSweep => RunningPage::Inspect,
             RunningPage::Notifications => RunningPage::NetworkSweep,
         }
     }
@@ -68,7 +62,6 @@ impl RunningPage {
         match self {
             RunningPage::Overview => Icon::Overview,
             RunningPage::Inspect => Icon::Inspect,
-            RunningPage::YourTraffic => Icon::Lightning,
             RunningPage::NetworkSweep => Icon::Ping,
             RunningPage::Notifications => Icon::Notification,
         }
@@ -91,32 +84,25 @@ mod tests {
             RunningPage::Notifications.previous(),
             RunningPage::NetworkSweep
         );
-        assert_eq!(
-            RunningPage::NetworkSweep.previous(),
-            RunningPage::YourTraffic
-        );
-        assert_eq!(RunningPage::YourTraffic.previous(), RunningPage::Inspect);
+        assert_eq!(RunningPage::NetworkSweep.previous(), RunningPage::Inspect);
         assert_eq!(RunningPage::Inspect.previous(), RunningPage::Overview);
     }
 
     #[test]
     fn test_next_running_page() {
         assert_eq!(RunningPage::Overview.next(), RunningPage::Inspect);
-        assert_eq!(RunningPage::Inspect.next(), RunningPage::YourTraffic);
-        assert_eq!(RunningPage::YourTraffic.next(), RunningPage::NetworkSweep);
+        assert_eq!(RunningPage::Inspect.next(), RunningPage::NetworkSweep);
         assert_eq!(RunningPage::NetworkSweep.next(), RunningPage::Notifications);
         assert_eq!(RunningPage::Notifications.next(), RunningPage::Overview);
     }
 
     #[test]
-    fn removed_analysis_tab_opens_your_traffic() {
-        assert_eq!(
-            serde_json::from_str::<RunningPage>(r#""Analysis""#).unwrap(),
-            RunningPage::YourTraffic
-        );
-        assert_eq!(
-            serde_json::from_str::<RunningPage>(r#""Announcements""#).unwrap(),
-            RunningPage::YourTraffic
-        );
+    fn removed_tabs_open_your_network() {
+        for saved in ["Analysis", "Announcements", "YourTraffic"] {
+            assert_eq!(
+                serde_json::from_str::<RunningPage>(&format!("\"{saved}\"")).unwrap(),
+                RunningPage::NetworkSweep
+            );
+        }
     }
 }

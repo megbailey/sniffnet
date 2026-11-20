@@ -21,7 +21,6 @@ use crate::gui::pages::types::running_page::RunningPage;
 use crate::gui::pages::types::settings_page::SettingsPage;
 use crate::gui::pages::waiting_page::waiting_page;
 use crate::gui::pages::welcome_page::welcome_page;
-use crate::gui::pages::your_traffic_page::your_traffic_page;
 use crate::gui::styles::types::custom_palette::CustomPalette;
 use crate::gui::styles::types::gradient_type::GradientType;
 use crate::gui::styles::types::palette::Palette;
@@ -135,14 +134,10 @@ pub struct Sniffer {
     pub neighbor_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
     /// Active Discovery column and its sort direction.
     pub announcement_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
-    /// Active Your traffic column and its sort direction.
-    pub your_traffic_sort: (crate::gui::types::network_sort::NeighborColumn, SortType),
     /// Active unparsed-group column and its sort direction.
     pub group_sort: (crate::gui::types::network_sort::GroupColumn, SortType),
     /// Sort direction of the occupied address list.
     pub occupied_sort: SortType,
-    /// Sort direction of the free address list.
-    pub free_sort: SortType,
     /// Current page number of inspect search results
     pub page_number: usize,
     /// MMDB readers for country and ASN
@@ -208,16 +203,11 @@ impl Sniffer {
                 crate::gui::types::network_sort::NeighborColumn::Packets,
                 SortType::Neutral,
             ),
-            your_traffic_sort: (
-                crate::gui::types::network_sort::NeighborColumn::Packets,
-                SortType::Neutral,
-            ),
             group_sort: (
                 crate::gui::types::network_sort::GroupColumn::Packets,
                 SortType::Neutral,
             ),
             occupied_sort: SortType::Neutral,
-            free_sort: SortType::Neutral,
             page_number: 1,
             mmdb_readers: MmdbReaders {
                 country: Arc::new(MmdbReader::from(&mmdb_country, COUNTRY_MMDB)),
@@ -452,7 +442,6 @@ impl Sniffer {
                         match running_page {
                             RunningPage::Overview => overview_page(self),
                             RunningPage::Inspect => inspect_page(self),
-                            RunningPage::YourTraffic => your_traffic_page(self),
                             RunningPage::NetworkSweep => network_sweep_page(self),
                             RunningPage::Notifications => notifications_page(self),
                         }
@@ -779,10 +768,8 @@ impl Sniffer {
         match sort {
             NetworkSort::Neighbor(column) => select_column(&mut self.neighbor_sort, column),
             NetworkSort::Announcement(column) => select_column(&mut self.announcement_sort, column),
-            NetworkSort::YourTraffic(column) => select_column(&mut self.your_traffic_sort, column),
             NetworkSort::Group(column) => select_column(&mut self.group_sort, column),
             NetworkSort::Occupied => self.occupied_sort = self.occupied_sort.next_sort(),
-            NetworkSort::Free => self.free_sort = self.free_sort.next_sort(),
         }
     }
 

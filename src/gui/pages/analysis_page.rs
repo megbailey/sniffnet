@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use iced::widget::scrollable::Direction;
 use iced::widget::text::Wrapping;
 use iced::widget::tooltip::Position;
@@ -5,6 +7,7 @@ use iced::widget::{Column, Container, Row, Scrollable, Text, Tooltip, button};
 use iced::{Alignment, Element, Length, Padding};
 
 use crate::gui::components::ellipsized_text::EllipsizedText;
+use crate::gui::styles::button::ButtonType;
 use crate::gui::styles::container::ContainerType;
 use crate::gui::styles::rule::RuleType;
 use crate::gui::styles::scrollbar::ScrollbarType;
@@ -20,16 +23,20 @@ use crate::networking::announcements::{AnnouncementGroup, grouped_announcements}
 use crate::networking::neighbors::LocalNeighbor;
 use crate::networking::sweep::{DiscoveryPing, discovery_pings};
 use crate::networking::types::data_representation::DataRepr;
+use crate::report::types::search_parameters::SearchParameters;
 use crate::report::types::sort_type::SortType;
 use crate::translations::translations::{
-    address_translation, bytes_translation, packets_translation, protocol_translation,
+    bytes_translation, packets_translation, protocol_translation,
 };
+use crate::translations::translations_2::mac_address_translation;
 use crate::translations::translations_3::service_translation;
 use crate::translations::translations_6::{
-    announcements_translation, arp_translation, instance_translation, local_neighbors_translation,
+    announcements_translation, arp_translation, instance_translation, ip_address_translation,
+    link_local_suffix_translation, local_neighbors_translation, neighbor_column_translation,
     no_announcements_translation, no_local_neighbors_translation, not_parsed_yet_translation,
     sweep_ping_translation, traffic_type_translation, unknown_purpose_translation,
 };
+use crate::utils::formatted_strings::label_link_local;
 use crate::{Sniffer, StyleType};
 
 pub(crate) fn announcements_card<'a>(
@@ -62,6 +69,7 @@ pub(crate) fn announcements_card<'a>(
                 language,
                 sniffer.announcement_sort,
                 instance_translation(language),
+                false,
                 |column| Message::NetworkAnalysisSort(NetworkSort::Announcement(column)),
             ))
             .push(RuleType::Standard.horizontal(5));
@@ -69,7 +77,10 @@ pub(crate) fn announcements_card<'a>(
         combined.extend(pings);
         sort_announcements(&mut combined, sniffer.announcement_sort);
         for row in combined {
-            listed = listed.push(announcement_row(&row));
+            listed = listed.push(announcement_row(
+                &row,
+                link_local_suffix_translation(language),
+            ));
         }
     }
     if !unparsed.is_empty() {
@@ -119,12 +130,16 @@ pub(crate) fn neighbors_card<'a>(
             .push(device_header(
                 language,
                 sniffer.neighbor_sort,
-                instance_translation(language),
+                neighbor_column_translation(language),
+                true,
                 |column| Message::NetworkAnalysisSort(NetworkSort::Neighbor(column)),
             ))
             .push(RuleType::Standard.horizontal(5));
         for neighbor in visible {
-            listed = listed.push(neighbor_row(neighbor));
+            listed = listed.push(neighbor_row(
+                neighbor,
+                link_local_suffix_translation(language),
+            ));
         }
     }
 
@@ -243,7 +258,12 @@ fn visible_rows(sniffer: &Sniffer) -> Vec<AnnouncementGroup> {
                 || row.protocols.to_ascii_lowercase().contains(&filter)
                 || row.traffic.to_ascii_lowercase().contains(&filter)
                 || row.model.to_ascii_lowercase().contains(&filter)
-                || row.addresses.to_ascii_lowercase().contains(&filter)
+                || label_link_local(
+                    &row.addresses,
+                    link_local_suffix_translation(sniffer.conf.settings.language),
+                )
+                .to_ascii_lowercase()
+                .contains(&filter)
         })
         .collect()
 }
@@ -276,7 +296,13 @@ fn visible_neighbors<'a>(
                     .traffic_types
                     .to_ascii_lowercase()
                     .contains(&filter)
-                || neighbor.address.to_ascii_lowercase().contains(&filter)
+                || label_link_local(
+                    &neighbor.address,
+                    link_local_suffix_translation(sniffer.conf.settings.language),
+                )
+                .to_ascii_lowercase()
+                .contains(&filter)
+                || neighbor.mac.to_ascii_lowercase().contains(&filter)
         })
         .collect();
     sort_neighbors(&mut visible, sniffer.neighbor_sort);
@@ -293,6 +319,7 @@ fn sort_neighbors(rows: &mut [&LocalNeighbor], sort: (NeighborColumn, SortType))
             NeighborColumn::Address => ipv4_order(&left.address)
                 .cmp(&ipv4_order(&right.address))
                 .then_with(|| left.address.cmp(&right.address)),
+            NeighborColumn::Mac => left.mac.cmp(&right.mac),
             NeighborColumn::Traffic => left.services.cmp(&right.services),
             NeighborColumn::Protocol => left.protocols.cmp(&right.protocols),
             NeighborColumn::TrafficType => left.traffic_types.cmp(&right.traffic_types),
@@ -312,6 +339,7 @@ pub(crate) fn sort_announcements(rows: &mut [AnnouncementGroup], sort: (Neighbor
             NeighborColumn::Address => ipv4_order(&left.addresses)
                 .cmp(&ipv4_order(&right.addresses))
                 .then_with(|| left.addresses.cmp(&right.addresses)),
+            NeighborColumn::Mac => Ordering::Equal,
             NeighborColumn::Protocol => left.protocols.cmp(&right.protocols),
             NeighborColumn::TrafficType => left.traffic.cmp(&right.traffic),
             NeighborColumn::Traffic => left.service.cmp(&right.service),
@@ -339,9 +367,15 @@ pub(crate) fn device_header(
     language: crate::Language,
     sort: (NeighborColumn, SortType),
     first_column: &str,
+    include_mac: bool,
     press: impl Fn(NeighborColumn) -> Message,
 ) -> Row<'_, Message, StyleType> {
-    Row::new()
+    let address_label = if include_mac {
+        ip_address_translation(language)
+    } else {
+        crate::translations::translations::address_translation(language)
+    };
+    let mut header = Row::new()
         .width(Length::Fill)
         .spacing(8)
         .align_y(Alignment::Center)
@@ -352,11 +386,20 @@ pub(crate) fn device_header(
             press(NeighborColumn::Neighbor),
         ))
         .push(header_cell(
-            address_translation(language).to_string(),
+            address_label.to_string(),
             4,
             shown_order(&sort.0, sort.1, &NeighborColumn::Address),
             press(NeighborColumn::Address),
-        ))
+        ));
+    if include_mac {
+        header = header.push(header_cell(
+            mac_address_translation(language).to_string(),
+            2,
+            shown_order(&sort.0, sort.1, &NeighborColumn::Mac),
+            press(NeighborColumn::Mac),
+        ));
+    }
+    header
         .push(header_cell(
             protocol_translation(language).to_string(),
             2,
@@ -391,25 +434,45 @@ fn shown(value: &str) -> String {
     }
 }
 
-fn neighbor_row(neighbor: &LocalNeighbor) -> Row<'static, Message, StyleType> {
-    Row::new()
+fn neighbor_row(
+    neighbor: &LocalNeighbor,
+    link_local: &str,
+) -> Element<'static, Message, StyleType> {
+    let row = Row::new()
         .width(Length::Fill)
         .spacing(8)
         .align_y(Alignment::Center)
         .push(cell(neighbor.label.clone(), 3, false))
-        .push(cell(neighbor.address.clone(), 4, false))
+        .push(cell(
+            label_link_local(&neighbor.address, link_local),
+            4,
+            false,
+        ))
+        .push(cell(shown(&neighbor.mac), 2, false))
         .push(cell(shown(&neighbor.protocols), 2, false))
         .push(cell(shown(&neighbor.traffic_types), 2, false))
         .push(cell(shown(&neighbor.services), 3, false))
-        .push(cell(neighbor.packets.to_string(), 1, false))
+        .push(cell(neighbor.packets.to_string(), 1, false));
+    button(row)
+        .padding([1, 0])
+        .width(Length::Fill)
+        .on_press(Message::Search(
+            SearchParameters::new_either_address_search(&neighbor.address),
+        ))
+        .class(ButtonType::Neutral)
+        .into()
 }
 
-pub(crate) fn announcement_row(row: &AnnouncementGroup) -> Row<'static, Message, StyleType> {
+pub(crate) fn announcement_row(
+    row: &AnnouncementGroup,
+    link_local: &str,
+) -> Row<'static, Message, StyleType> {
+    let addresses = label_link_local(&row.addresses, link_local);
     Row::new()
         .width(Length::Fill)
         .spacing(8)
         .push(cell(shown(&row.instance), 3, false))
-        .push(cell(shown(&row.addresses), 4, false))
+        .push(cell(shown(&addresses), 4, false))
         .push(cell(shown(&row.protocols), 2, false))
         .push(cell(shown(&row.traffic), 2, false))
         .push(cell(shown(&row.service), 3, false))

@@ -319,20 +319,6 @@ pub fn network_sweep_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn your_traffic_translation(language: Language) -> &'static str {
-    match language {
-        Language::EN => "Your traffic",
-        _ => "Your traffic",
-    }
-}
-
-pub fn no_your_traffic_translation(language: Language) -> &'static str {
-    match language {
-        Language::EN => "No traffic from this computer yet.",
-        _ => "No traffic from this computer yet.",
-    }
-}
-
 pub fn possible_addresses_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "Size of subnet",
@@ -347,13 +333,6 @@ pub fn occupied_ips_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn free_ips_translation(language: Language) -> &'static str {
-    match language {
-        Language::EN => "Free",
-        _ => "Free",
-    }
-}
-
 pub fn no_occupied_ips_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "No neighbors.",
@@ -361,24 +340,31 @@ pub fn no_occupied_ips_translation(language: Language) -> &'static str {
     }
 }
 
-pub fn no_free_ips_translation(language: Language) -> &'static str {
+pub fn router_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "No addresses are free.",
-        _ => "No addresses are free.",
+        Language::EN => "Router",
+        _ => "Router",
     }
 }
 
-pub fn occupied_translation(language: Language) -> &'static str {
+pub fn no_router_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Neighbors",
-        _ => "Neighbors",
+        Language::EN => "No router identified.",
+        _ => "No router identified.",
     }
 }
 
-pub fn of_translation(language: Language) -> &'static str {
+pub fn ipv4_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "of",
-        _ => "of",
+        Language::EN => "IPv4",
+        _ => "IPv4",
+    }
+}
+
+pub fn ipv6_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "IPv6",
+        _ => "IPv6",
     }
 }
 
@@ -386,6 +372,20 @@ pub fn instance_translation(language: Language) -> &'static str {
     match language {
         Language::EN => "Instance",
         _ => "Instance",
+    }
+}
+
+pub fn neighbor_column_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "Neighbor",
+        _ => "Neighbor",
+    }
+}
+
+pub fn link_local_suffix_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "(link-local)",
+        _ => "(link-local)",
     }
 }
 
@@ -412,7 +412,14 @@ pub fn arp_translation(language: Language) -> &'static str {
 
 pub fn traffic_type_translation(language: Language) -> &'static str {
     match language {
-        Language::EN => "Traffic type",
-        _ => "Traffic type",
+        Language::EN => "Traffic",
+        _ => "Traffic",
+    }
+}
+
+pub fn ip_address_translation(language: Language) -> &'static str {
+    match language {
+        Language::EN => "IP address",
+        _ => "IP address",
     }
 }

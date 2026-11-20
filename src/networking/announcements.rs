@@ -64,6 +64,8 @@ pub struct AnnouncementInfo {
     pub model: String,
     /// Extra addresses learned from A or AAAA records.
     pub extra_addresses: Vec<IpAddr>,
+    /// Host named by the SRV record, such as `mbs-ipad.local`.
+    pub srv_target: String,
     /// Source MAC of the frame that carried an IPv4 advertisement.
     src_mac: Option<[u8; 6]>,
 }
@@ -75,6 +77,7 @@ struct ObservedAnnouncement {
     service: String,
     model: String,
     extra_addresses: Vec<IpAddr>,
+    srv_target: String,
 }
 
 impl AnnouncementInfo {
@@ -90,6 +93,9 @@ impl AnnouncementInfo {
         }
         if self.src_mac.is_none() {
             self.src_mac = other.src_mac;
+        }
+        if self.srv_target.is_empty() {
+            self.srv_target.clone_from(&other.srv_target);
         }
     }
 
@@ -256,6 +262,9 @@ pub fn observe_announcements(info_traffic: &mut InfoTraffic, datagram: &Announce
         if entry.model.is_empty() {
             entry.model = item.model;
         }
+        if entry.srv_target.is_empty() {
+            entry.srv_target.clone_from(&item.srv_target);
+        }
         for address in item.extra_addresses {
             entry.push_address(address);
         }
@@ -295,6 +304,7 @@ fn parse_notify(payload: &[u8]) -> Option<ObservedAnnouncement> {
         service: service?,
         model,
         extra_addresses: Vec::new(),
+        srv_target: String::new(),
     })
 }
 
@@ -403,6 +413,7 @@ fn assemble(
                     service,
                     model: String::new(),
                     extra_addresses: Vec::new(),
+                    srv_target: String::new(),
                 });
         };
 
@@ -426,6 +437,9 @@ fn assemble(
         let Some(row) = rows.get_mut(&(instance, service)) else {
             continue;
         };
+        if row.srv_target.is_empty() {
+            row.srv_target = target.trim_end_matches('.').to_string();
+        }
         let target = target.to_ascii_lowercase();
         for (name, address) in addresses {
             if name == &target && row.extra_addresses.len() < 3 {

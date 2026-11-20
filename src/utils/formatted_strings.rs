@@ -198,6 +198,31 @@ pub fn full_print_link_type(link_type: Option<LinkType>, language: Language) -> 
     )
 }
 
+/// Mark each link-local address in a comma-separated list. Other parts, such as a MAC, stay as written.
+pub fn label_link_local(addresses: &str, suffix: &str) -> String {
+    addresses
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            if is_link_local_address(part) {
+                format!("{part} {suffix}")
+            } else {
+                part.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn is_link_local_address(address: &str) -> bool {
+    match address.parse::<IpAddr>() {
+        Ok(IpAddr::V4(ip)) => ip.is_link_local(),
+        Ok(IpAddr::V6(ip)) => ip.is_unicast_link_local(),
+        Err(_) => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,5 +357,25 @@ mod tests {
         assert_eq!(result, "ff:ff:0a:b1:09:0f".to_string());
         let result = mac_from_dec_to_hex([0, 0, 0, 0, 0, 0]);
         assert_eq!(result, "00:00:00:00:00:00".to_string());
+    }
+
+    #[test]
+    fn a_link_local_address_keeps_its_suffix_and_a_mac_does_not() {
+        assert_eq!(
+            label_link_local("192.168.1.87, fe80::4", "(link-local)"),
+            "192.168.1.87, fe80::4 (link-local)"
+        );
+        assert_eq!(
+            label_link_local("169.254.1.1", "(link-local)"),
+            "169.254.1.1 (link-local)"
+        );
+        assert_eq!(
+            label_link_local("fe80::1, aa:bb:cc:dd:ee:ff", "(link-local)"),
+            "fe80::1 (link-local), aa:bb:cc:dd:ee:ff"
+        );
+        assert_eq!(
+            label_link_local("2600:1700:38d0:7400::1", "(link-local)"),
+            "2600:1700:38d0:7400::1"
+        );
     }
 }

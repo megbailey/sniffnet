@@ -22,12 +22,22 @@ All Sniffnet releases with the relative changes are documented in this file.
 - The subnet size in Network analysis is labeled Size of subnet, and the occupied count is labeled Neighbors
 - The announcements card is renamed Discovery
 - The Network analysis tab is labeled Your network
-- Your traffic lists every packet to or from this computer, with the same columns as Discovery
 - The Overhead neighbor card is labeled Overheard Neighbors
+- Clicking an Overheard Neighbors row opens Inspect filtered to packets that use that address as source or destination
+- Overheard Neighbors are labeled with the SRV hostname from an announcement, then a resolved hostname, then the announced name
 - Neighbors counts an address only after that address has sent traffic. A discovery ARP request no longer marks its target as a neighbor
-- The Analysis tab is removed. A saved page named Analysis or Announcements opens Your traffic
+- The Analysis tab is removed. A saved page named Analysis, Announcements, or Your traffic opens Your network
 - Your network no longer shows the Investigated and No reply counts
 - An ARP request with no reply lists its target under Free, and that address stays out of Neighbors
+- The Free list is replaced by the router's IPv4 and IPv6 addresses
+- The router addresses sit under Size of subnet so the Neighbors list can use the full height
+- Overheard Neighbors keeps a hostname learned on any of a device's addresses, including a link-local IPv6 address, instead of falling back to the IPv4
+- Overheard Neighbors lists IP addresses and the MAC in separate columns
+- The Traffic type column is labeled Traffic
+- The Overheard Neighbors name column is labeled Neighbor
+- Link-local addresses are shown with the suffix (link-local)
+- A Neighbors-list address stays until the router ARPs for it again and that ARP gets no reply
+- The Neighbors list is labeled Neighbors (count), and the separate Neighbors total is removed
 - Analysis tab: group every flow by purpose. DNS-SD and UDP 2021 advertisements stay in an Announcements card, other traffic stays grouped until a dedicated analysis exists, and every other device on the local network appears under Local Neighbors, named from its announcement, hostname, or role such as Router or iPhone
 - Updated some of the existing translations to v1.6:
   - Sinhala ([#1362](https://github.com/GyulyVGC/sniffnet/pull/1362))

@@ -1,4 +1,4 @@
-//! Column sort choices for Your network and Your traffic.
+//! Column sort choices for Your network.
 
 use std::cmp::Ordering;
 use std::net::Ipv4Addr;
@@ -12,14 +12,10 @@ pub enum NetworkSort {
     Neighbor(NeighborColumn),
     /// Discovery table. Columns match Overheard Neighbors.
     Announcement(NeighborColumn),
-    /// Traffic to and from this computer. Columns match Discovery.
-    YourTraffic(NeighborColumn),
     /// Unparsed announcement groups.
     Group(GroupColumn),
     /// Occupied address list.
     Occupied,
-    /// Free address list.
-    Free,
 }
 
 /// Columns of the Overheard Neighbors table.
@@ -27,8 +23,10 @@ pub enum NetworkSort {
 pub enum NeighborColumn {
     /// Device label.
     Neighbor,
-    /// IPv4 address and MAC.
+    /// IPv4 and IPv6 addresses.
     Address,
+    /// Device MAC.
+    Mac,
     /// Joined service names.
     Traffic,
     /// Packet protocols, such as UDP or ARP.

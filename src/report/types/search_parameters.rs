@@ -34,6 +34,8 @@ pub struct SearchParameters {
     pub only_favorites: bool,
     /// Whether to display only blacklisted
     pub only_blacklisted: bool,
+    /// When set, the source and destination address filters match either end of a packet.
+    pub match_either_address: bool,
 }
 
 impl SearchParameters {
@@ -99,6 +101,16 @@ impl SearchParameters {
             ..SearchParameters::default()
         }
     }
+
+    /// Packets that have `address` as their source or their destination.
+    pub fn new_either_address_search(address: &str) -> Self {
+        Self {
+            address_src: address.to_string(),
+            address_dst: address.to_string(),
+            match_either_address: true,
+            ..SearchParameters::default()
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -138,6 +150,16 @@ impl FilterInputType {
         value: &InfoAddressPortPair,
         r_dns_host: Option<&(String, Host)>,
     ) -> bool {
+        if search_params.match_either_address {
+            match self {
+                FilterInputType::AddressDst => return true,
+                FilterInputType::AddressSrc => {
+                    return either_address_matches(&search_params.address_src, key);
+                }
+                _ => {}
+            }
+        }
+
         let filter_value = self.current_value(search_params).to_lowercase();
 
         if filter_value.is_empty() {
@@ -226,6 +248,7 @@ impl FilterInputType {
 
     pub fn clear_search(self, search_params: &SearchParameters) -> SearchParameters {
         let mut result = search_params.clone();
+        result.match_either_address = false;
         match self {
             FilterInputType::AddressSrc => result.address_src = String::new(),
             FilterInputType::PortSrc => result.port_src = String::new(),
@@ -244,6 +267,7 @@ impl FilterInputType {
 
     pub fn new_search(self, search_params: &SearchParameters, new_value: &str) -> SearchParameters {
         let mut result = search_params.clone();
+        result.match_either_address = false;
         let trimmed = new_value.trim().to_string();
         match self {
             FilterInputType::AddressSrc => result.address_src = trimmed,
@@ -259,5 +283,50 @@ impl FilterInputType {
             FilterInputType::Exporter => result.exporter = trimmed,
         }
         result
+    }
+}
+
+fn either_address_matches(address: &str, key: &AddressPortPair) -> bool {
+    let needles: Vec<_> = address
+        .split(',')
+        .map(str::trim)
+        .filter(|needle| !needle.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    if needles.is_empty() {
+        return true;
+    }
+    let src = key.src_ip.to_string().to_lowercase();
+    let dst = key.dst_ip.to_string().to_lowercase();
+    needles
+        .iter()
+        .any(|needle| src.contains(needle) || dst.contains(needle))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{IpAddr, Ipv4Addr};
+
+    use crate::Protocol;
+    use crate::networking::types::address_port_pair::AddressPortPair;
+    use crate::networking::types::info_address_port_pair::InfoAddressPortPair;
+
+    use super::*;
+
+    #[test]
+    fn an_either_address_search_matches_source_or_destination() {
+        let neighbor = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254));
+        let other = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let me = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 171));
+        let search = SearchParameters::new_either_address_search("192.168.1.254");
+        let info = InfoAddressPortPair::default();
+        let from_neighbor =
+            AddressPortPair::new(neighbor, Some(80), me, Some(50_000), Protocol::Tcp);
+        let to_neighbor =
+            AddressPortPair::new(me, Some(50_000), neighbor, Some(443), Protocol::Tcp);
+        let unrelated = AddressPortPair::new(me, Some(50_000), other, Some(443), Protocol::Tcp);
+        assert!(search.match_entry(&from_neighbor, &info, None, false));
+        assert!(search.match_entry(&to_neighbor, &info, None, false));
+        assert!(!search.match_entry(&unrelated, &info, None, false));
     }
 }

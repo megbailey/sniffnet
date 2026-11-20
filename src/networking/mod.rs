@@ -1,7 +1,6 @@
 pub mod analysis;
 pub mod announcements;
 pub mod capture;
-pub mod host_traffic;
 pub mod ipfix;
 pub mod manage_packets;
 pub mod neighbors;

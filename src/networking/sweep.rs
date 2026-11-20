@@ -4,13 +4,15 @@
 //! The gateway stays a neighbor even when the capture has not yet seen it speak.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::net::{IpAddr, Ipv4Addr};
-use std::time::{Duration, Instant};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::time::Duration;
 
 use pcap::Address;
 
 use crate::Protocol;
-use crate::networking::manage_packets::destination_traffic_type;
+use crate::networking::manage_packets::{
+    destination_traffic_type, is_local_connection, is_my_address,
+};
 use crate::networking::neighbors::{is_gateway, on_this_network};
 use crate::networking::types::address_port_pair::AddressPortPair;
 use crate::networking::types::info_address_port_pair::InfoAddressPortPair;
@@ -20,8 +22,6 @@ use crate::utils::types::timestamp::Timestamp;
 
 /// How long an address must keep appearing before it is treated as occupied.
 const MIN_OCCUPIED: Duration = Duration::from_secs(30);
-/// How long an address can stay quiet before it is free again.
-const MAX_IDLE: Duration = Duration::from_secs(60);
 
 /// One packet flow aimed at a local address that did not reply.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -55,6 +55,137 @@ pub struct SweepReport {
     pub network: String,
     /// The unanswered attempts themselves.
     pub attempts: Vec<SweepAttempt>,
+}
+
+/// IPv4 and IPv6 addresses that belong to the gateway on this network.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RouterIdentity {
+    /// Gateway IPv4, when one was seen.
+    pub ipv4: Vec<String>,
+    /// On-link IPv6 addresses that use the gateway's MAC.
+    pub ipv6: Vec<String>,
+}
+
+/// The gateway that spoke, plus IPv6 addresses that share its MAC and stay on this network.
+///
+/// A forwarded public address uses the gateway's MAC too, so only link-local and on-link IPv6 count.
+pub fn identified_router(
+    map: &HashMap<AddressPortPair, InfoAddressPortPair>,
+    local_addresses: &[Address],
+) -> RouterIdentity {
+    let Some(gateway) = chosen_gateway(map, local_addresses) else {
+        return RouterIdentity::default();
+    };
+    let macs = gateway_macs(map, gateway);
+    let mut ipv6 = Vec::new();
+    for (key, info) in map {
+        remember_router_ipv6(&mut ipv6, key.src_ip, info.src_mac, &macs, local_addresses);
+        remember_router_ipv6(&mut ipv6, key.dst_ip, info.dst_mac, &macs, local_addresses);
+    }
+    ipv6.sort_by_key(ipv6_order);
+    ipv6.dedup();
+    RouterIdentity {
+        ipv4: vec![gateway.to_string()],
+        ipv6: ipv6
+            .into_iter()
+            .map(|address| address.to_string())
+            .collect(),
+    }
+}
+
+fn chosen_gateway(
+    map: &HashMap<AddressPortPair, InfoAddressPortPair>,
+    local_addresses: &[Address],
+) -> Option<Ipv4Addr> {
+    let mut scores: HashMap<Ipv4Addr, (u128, u128)> = HashMap::new();
+    for (key, info) in map {
+        if let IpAddr::V4(ip) = key.src_ip
+            && is_gateway(&key.src_ip, local_addresses)
+        {
+            let entry = scores.entry(ip).or_default();
+            entry.0 = entry.0.saturating_add(info.packets);
+            entry.1 = entry.1.saturating_add(info.packets);
+        }
+        if let IpAddr::V4(ip) = key.dst_ip
+            && is_gateway(&key.dst_ip, local_addresses)
+        {
+            let entry = scores.entry(ip).or_default();
+            entry.1 = entry.1.saturating_add(info.packets);
+        }
+    }
+    scores
+        .into_iter()
+        .max_by(|left, right| {
+            left.1
+                .0
+                .cmp(&right.1.0)
+                .then(left.1.1.cmp(&right.1.1))
+                .then(right.0.cmp(&left.0))
+        })
+        .map(|(ip, _)| ip)
+}
+
+fn gateway_macs(
+    map: &HashMap<AddressPortPair, InfoAddressPortPair>,
+    gateway: Ipv4Addr,
+) -> HashSet<[u8; 6]> {
+    let gateway = IpAddr::V4(gateway);
+    let mut macs = HashSet::new();
+    for (key, info) in map {
+        if key.src_ip == gateway
+            && let Some(mac) = info.src_mac
+            && is_device_mac(mac)
+        {
+            macs.insert(mac);
+        }
+        if key.dst_ip == gateway
+            && let Some(mac) = info.dst_mac
+            && is_device_mac(mac)
+        {
+            macs.insert(mac);
+        }
+    }
+    macs
+}
+
+fn remember_router_ipv6(
+    found: &mut Vec<Ipv6Addr>,
+    address: IpAddr,
+    mac: Option<[u8; 6]>,
+    gateway_macs: &HashSet<[u8; 6]>,
+    local_addresses: &[Address],
+) {
+    let (IpAddr::V6(ipv6), Some(mac)) = (address, mac) else {
+        return;
+    };
+    if gateway_macs.contains(&mac)
+        && is_router_ipv6(ipv6, local_addresses)
+        && !found.contains(&ipv6)
+    {
+        found.push(ipv6);
+    }
+}
+
+fn is_router_ipv6(address: Ipv6Addr, local_addresses: &[Address]) -> bool {
+    let ip = IpAddr::V6(address);
+    if address.is_multicast() || address.is_unspecified() || is_my_address(&ip, local_addresses) {
+        return false;
+    }
+    address.is_unicast_link_local() || is_local_connection(&ip, local_addresses)
+}
+
+fn ipv6_order(address: &Ipv6Addr) -> (u8, u128) {
+    (
+        u8::from(address.is_unicast_link_local()),
+        u128::from(*address),
+    )
+}
+
+fn is_device_mac(mac: [u8; 6]) -> bool {
+    mac != [0, 0, 0, 0, 0, 0]
+        && mac != [0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        && mac[..2] != [0x33, 0x33]
+        && mac[..3] != [0x01, 0x00, 0x5e]
 }
 
 /// True when `address` was only ever a destination on this network, and is not the gateway.
@@ -105,7 +236,7 @@ pub fn sweep_report(
     let networks = counted_ipv4_networks(local_addresses);
     let possible = networks.iter().map(|network| network.usable).sum();
     let network = network_labels(&networks);
-    let (occupied_ips, free_ips) = live_addresses(map, local_addresses, &networks, Instant::now());
+    let (occupied_ips, free_ips) = live_addresses(map, local_addresses, &networks);
     SweepReport {
         investigated: u128::try_from(investigated.len()).unwrap_or(0),
         no_reply: u128::try_from(no_reply.len()).unwrap_or(0),
@@ -121,25 +252,32 @@ pub fn sweep_report(
 struct Presence {
     first: Timestamp,
     last: Timestamp,
-    seen: Instant,
 }
 
-/// Occupied addresses have sent traffic for [`MIN_OCCUPIED`] and were heard within [`MAX_IDLE`].
-/// This host stays occupied. An ARP target that never replies is free, not a neighbor.
+/// Occupied addresses have sent traffic for [`MIN_OCCUPIED`].
+///
+/// This host stays occupied. A sender stays until the router ARPs for it again and no later
+/// packet comes from that address. An ARP target that never replies is free, not a neighbor.
 fn live_addresses(
     map: &HashMap<AddressPortPair, InfoAddressPortPair>,
     local_addresses: &[Address],
     networks: &[CountedNetwork],
-    now: Instant,
 ) -> (Vec<String>, Vec<String>) {
     let mut presence: HashMap<Ipv4Addr, Presence> = HashMap::new();
     let mut silent_arp: HashSet<Ipv4Addr> = HashSet::new();
+    let mut router_arp: HashMap<Ipv4Addr, Timestamp> = HashMap::new();
     for (key, info) in map {
         if key.protocol == Protocol::Arp
             && let IpAddr::V4(ip) = key.dst_ip
             && is_usable_host(ip, networks)
         {
             silent_arp.insert(ip);
+            if is_gateway(&key.src_ip, local_addresses) {
+                let entry = router_arp.entry(ip).or_insert(info.final_timestamp);
+                if info.final_timestamp > *entry {
+                    *entry = info.final_timestamp;
+                }
+            }
         }
         // Only a sender can become a neighbor. An ARP target stays free until it replies.
         let IpAddr::V4(ip) = key.src_ip else {
@@ -151,16 +289,12 @@ fn live_addresses(
         let entry = presence.entry(ip).or_insert(Presence {
             first: info.initial_timestamp,
             last: info.final_timestamp,
-            seen: info.final_instant,
         });
         if info.initial_timestamp < entry.first {
             entry.first = info.initial_timestamp;
         }
         if info.final_timestamp > entry.last {
             entry.last = info.final_timestamp;
-        }
-        if info.final_instant > entry.seen {
-            entry.seen = info.final_instant;
         }
     }
 
@@ -180,7 +314,7 @@ fn live_addresses(
         if ours.contains(&ip) {
             continue;
         }
-        if held_long_enough(&seen) && still_present(&seen, now) {
+        if held_long_enough(&seen) && replied_since_router_arp(&seen, router_arp.get(&ip)) {
             occupied.push(ip);
         } else {
             free.push(ip);
@@ -212,8 +346,12 @@ fn held_long_enough(presence: &Presence) -> bool {
     span >= i64::try_from(MIN_OCCUPIED.as_micros()).unwrap_or(i64::MAX)
 }
 
-fn still_present(presence: &Presence, now: Instant) -> bool {
-    now.saturating_duration_since(presence.seen) <= MAX_IDLE
+/// A neighbor stays until a later ARP from the router goes unanswered.
+fn replied_since_router_arp(presence: &Presence, router_arp: Option<&Timestamp>) -> bool {
+    let Some(asked) = router_arp else {
+        return true;
+    };
+    presence.last >= *asked
 }
 
 fn is_usable_host(ip: Ipv4Addr, networks: &[CountedNetwork]) -> bool {
@@ -477,7 +615,7 @@ fn attempt_detail(service: &str, port: Option<u16>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{Duration, Instant};
+    use std::time::Instant;
 
     use crate::Protocol;
     use crate::networking::types::info_address_port_pair::InfoAddressPortPair;
@@ -587,8 +725,7 @@ mod tests {
     }
 
     #[test]
-    fn a_short_or_stale_address_is_free_and_a_settled_one_is_occupied() {
-        let now = Instant::now();
+    fn a_short_address_is_free_and_a_settled_one_stays_without_a_later_arp() {
         let mut map = HashMap::new();
         map.insert(
             AddressPortPair::new(
@@ -602,7 +739,6 @@ mod tests {
                 packets: 20,
                 initial_timestamp: Timestamp::new(1_000, 0),
                 final_timestamp: Timestamp::new(1_045, 0),
-                final_instant: now,
                 ..Default::default()
             },
         );
@@ -618,7 +754,6 @@ mod tests {
                 packets: 2,
                 initial_timestamp: Timestamp::new(1_000, 0),
                 final_timestamp: Timestamp::new(1_005, 0),
-                final_instant: now,
                 ..Default::default()
             },
         );
@@ -634,7 +769,6 @@ mod tests {
                 packets: 20,
                 initial_timestamp: Timestamp::new(1_000, 0),
                 final_timestamp: Timestamp::new(1_045, 0),
-                final_instant: now.checked_sub(Duration::from_secs(90)).unwrap_or(now),
                 ..Default::default()
             },
         );
@@ -642,10 +776,94 @@ mod tests {
         let report = sweep_report(&map, &locals());
         assert!(report.occupied_ips.iter().any(|ip| ip == "192.168.1.87"));
         assert!(report.occupied_ips.iter().any(|ip| ip == "192.168.1.171"));
+        assert!(report.occupied_ips.iter().any(|ip| ip == "192.168.1.66"));
         assert!(report.free_ips.iter().any(|ip| ip == "192.168.1.80"));
-        assert!(report.free_ips.iter().any(|ip| ip == "192.168.1.66"));
         assert!(!report.occupied_ips.iter().any(|ip| ip == "192.168.1.80"));
+    }
+
+    #[test]
+    fn a_neighbor_leaves_only_when_the_routers_next_arp_goes_unanswered() {
+        let mut map = HashMap::new();
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 87)),
+                Some(80),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 171)),
+                Some(50_000),
+                Protocol::Tcp,
+            ),
+            InfoAddressPortPair {
+                packets: 20,
+                initial_timestamp: Timestamp::new(1_000, 0),
+                final_timestamp: Timestamp::new(1_045, 0),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 66)),
+                Some(80),
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 171)),
+                Some(50_000),
+                Protocol::Tcp,
+            ),
+            InfoAddressPortPair {
+                packets: 20,
+                initial_timestamp: Timestamp::new(1_000, 0),
+                final_timestamp: Timestamp::new(1_045, 0),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 66)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 1,
+                initial_timestamp: Timestamp::new(1_200, 0),
+                final_timestamp: Timestamp::new(1_200, 0),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 87)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 1,
+                initial_timestamp: Timestamp::new(1_200, 0),
+                final_timestamp: Timestamp::new(1_200, 0),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 87)),
+                None,
+                IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254)),
+                None,
+                Protocol::Arp,
+            ),
+            InfoAddressPortPair {
+                packets: 1,
+                initial_timestamp: Timestamp::new(1_200, 0),
+                final_timestamp: Timestamp::new(1_201, 0),
+                ..Default::default()
+            },
+        );
+
+        let report = sweep_report(&map, &locals());
+        assert!(report.occupied_ips.iter().any(|ip| ip == "192.168.1.87"));
         assert!(!report.occupied_ips.iter().any(|ip| ip == "192.168.1.66"));
+        assert!(report.free_ips.iter().any(|ip| ip == "192.168.1.66"));
     }
 
     #[test]
@@ -843,5 +1061,76 @@ mod tests {
         assert_eq!(pings[0].askers, "192.168.1.254");
         assert_eq!(pings[0].packets, 4);
         assert!(pings[0].arp);
+    }
+
+    #[test]
+    fn the_router_keeps_its_own_ipv6_and_drops_forwarded_traffic() {
+        let router_mac = [0x48, 0x41, 0x7b, 0x20, 0xd8, 0x32];
+        let other_mac = [0x0a, 0x98, 0xa1, 0x5c, 0x99, 0xa8];
+        let gateway = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 254));
+        let host = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 171));
+        let link_local: IpAddr = "fe80::4a41:7bff:fe20:d832".parse().unwrap();
+        let on_link: IpAddr = "2600:1700:38d0:7400::1".parse().unwrap();
+        let forwarded: IpAddr = "2607:f8b0:4002:c10::71".parse().unwrap();
+        let other_phone: IpAddr = "fe80::4d:3ce9:8b5a:688a".parse().unwrap();
+        let mut locals = locals();
+        locals.push(Address {
+            addr: "2600:1700:38d0:7400:1::171".parse().unwrap(),
+            netmask: Some("ffff:ffff:ffff:ffff::".parse().unwrap()),
+            broadcast_addr: None,
+            dst_addr: None,
+        });
+        let mut map = HashMap::new();
+        map.insert(
+            AddressPortPair::new(gateway, None, host, None, Protocol::Icmpv4),
+            InfoAddressPortPair {
+                packets: 8,
+                src_mac: Some(router_mac),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(link_local, None, other_phone, None, Protocol::Icmpv6),
+            InfoAddressPortPair {
+                packets: 1,
+                src_mac: Some(router_mac),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(on_link, Some(53), host, Some(50_000), Protocol::Udp),
+            InfoAddressPortPair {
+                packets: 4,
+                src_mac: Some(router_mac),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(forwarded, Some(443), host, Some(50_000), Protocol::Tcp),
+            InfoAddressPortPair {
+                packets: 40,
+                src_mac: Some(router_mac),
+                ..Default::default()
+            },
+        );
+        map.insert(
+            AddressPortPair::new(other_phone, None, link_local, None, Protocol::Icmpv6),
+            InfoAddressPortPair {
+                packets: 2,
+                src_mac: Some(other_mac),
+                dst_mac: Some(router_mac),
+                ..Default::default()
+            },
+        );
+
+        let router = identified_router(&map, &locals);
+        assert_eq!(router.ipv4, vec!["192.168.1.254".to_string()]);
+        assert_eq!(
+            router.ipv6,
+            vec![
+                "2600:1700:38d0:7400::1".to_string(),
+                "fe80::4a41:7bff:fe20:d832".to_string()
+            ]
+        );
     }
 }
